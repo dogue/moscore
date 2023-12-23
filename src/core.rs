@@ -1,8 +1,6 @@
-use std::cell::{Ref, RefMut};
-#[allow(arithmetic_overflow)]
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{error::CoreError, traits::Bus};
+#[allow(arithmetic_overflow)]
+use std::{cell::RefCell, cell::RefMut, rc::Rc};
 
 #[derive(Debug)]
 pub struct Core {
@@ -84,8 +82,7 @@ impl Core {
     }
 
     fn fetch(&mut self) -> u8 {
-        let byte = self.bus.borrow_mut().read(self.pc);
-        self.clock_bus();
+        let byte = self.read_bus(self.pc);
         self.pc += 1;
         byte
     }
@@ -94,30 +91,63 @@ impl Core {
         (u16::from(high) << 8) | u16::from(low)
     }
 
+    fn page_crossed(&self, byte: u8, index: u8) -> bool {
+        (byte as u16) + (index as u16) > 255
+    }
+
     fn decode(&mut self, byte: u8) {
         match byte {
-            0xA9 => self.load_a_immediate(),
-            0xAD => self.load_a_absolute(),
+            0xA9 => self.lda_immediate(),
+            0xA5 => self.lda_zeropage(),
+            0xB5 => self.lda_zeropage_x(),
+            0xAD => self.lda_absolute(),
+            0xBD => self.lda_absolute_x(),
             _ => self.halted = true,
         }
     }
+}
 
-    fn load_a_immediate(&mut self) {
+// LDA
+impl Core {
+    // 0xA9
+    fn lda_immediate(&mut self) {
         self.acc = self.fetch();
     }
 
-    fn load_a_zeropage(&mut self) {
+    // 0xA5
+    fn lda_zeropage(&mut self) {
         let low = self.fetch();
         let high = 0x00;
         let addr = self.addr_from_bytes(low, high);
         self.acc = self.read_bus(addr);
     }
 
-    fn load_a_absolute(&mut self) {
+    // 0xB5
+    fn lda_zeropage_x(&mut self) {
+        let low = self.fetch() + self.idx;
+        self.clock_bus();
+        let addr = self.addr_from_bytes(low, 0x00);
+        self.acc = self.read_bus(addr);
+    }
+
+    // 0xAD
+    fn lda_absolute(&mut self) {
         let low = self.fetch();
         let high = self.fetch();
         let addr = self.addr_from_bytes(low, high);
 
+        self.acc = self.read_bus(addr);
+    }
+
+    // 0xBD
+    fn lda_absolute_x(&mut self) {
+        let low = self.fetch();
+        let high = self.fetch();
+        let mut addr = self.addr_from_bytes(low, high);
+        addr += self.idx as u16;
+        if self.page_crossed(low, self.idx) {
+            self.clock_bus();
+        }
         self.acc = self.read_bus(addr);
     }
 }

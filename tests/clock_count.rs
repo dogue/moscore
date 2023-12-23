@@ -65,3 +65,36 @@ fn count_load_a_absolute() {
     let rom = core.get_bus().dump_rom();
     assert_eq!(rom[0], 5);
 }
+
+#[test]
+fn count_load_a_zeropage() {
+    let bus = TestBus { rom: [0; 0xffff] };
+    let prog = create_prog(vec![0xa5, 0x69]);
+    let mut core = Core::new(bus, prog.to_vec()).unwrap();
+    core.run();
+
+    let rom = core.get_bus().dump_rom();
+    assert_eq!(rom[0], 4);
+}
+
+#[test]
+fn count_load_a_zeropage_x() {
+    let bus = TestBus { rom: [0; 0xffff] };
+    let prog = create_prog(vec![0xb5, 0x69]);
+    let mut core = Core::new(bus, prog.to_vec()).unwrap();
+    core.run();
+
+    let rom = core.get_bus().dump_rom();
+    assert_eq!(rom[0], 5);
+}
+
+#[test]
+fn count_load_a_absolute_x() {
+    let bus = TestBus { rom: [0; 0xffff] };
+    let prog = create_prog(vec![0xbd, 0x42, 0x42]);
+    let mut core = Core::new(bus, prog.to_vec()).unwrap();
+    core.run();
+
+    let rom = core.get_bus().dump_rom();
+    assert_eq!(rom[0], 5);
+}
