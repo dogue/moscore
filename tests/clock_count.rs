@@ -1,11 +1,11 @@
 use moscore::{core::Core, traits::Bus, *};
 
 #[derive(Debug)]
-struct TestBus {
+struct CycleCounterBus {
     rom: [u8; 0xffff],
 }
 
-impl Bus for TestBus {
+impl Bus for CycleCounterBus {
     fn read(&mut self, addr: u16) -> u8 {
         self.rom[addr as usize]
     }
@@ -30,93 +30,81 @@ impl Bus for TestBus {
     }
 }
 
-fn create_prog(bytes: Vec<u8>) -> [u8; 0xffff] {
+struct Test {
+    opcode: u8,
+    expected_cycles: u8,
+}
+
+impl Test {
+    pub fn new(opcode: u8, expected_cycles: u8) -> Self {
+        Self {
+            opcode,
+            expected_cycles,
+        }
+    }
+}
+
+fn create_prog(byte: u8) -> Vec<u8> {
     let mut prog: [u8; 0xffff] = [0; 0xffff];
     prog[0xfffd] = 0x80;
+    prog[0x8000] = byte;
 
-    bytes
-        .into_iter()
-        .enumerate()
-        .for_each(|(i, byte)| prog[i + 0x8000] = byte);
+    prog.to_vec()
+}
 
-    prog
+fn run_test(test: Test) {
+    let bus = CycleCounterBus { rom: [0; 0xffff] };
+    let prog = create_prog(test.opcode);
+    let mut core = Core::new(bus, prog).unwrap();
+    core.run();
+    let rom = core.get_bus().dump_rom();
+    // add one to account for fetching the invalid byte that halts
+    assert_eq!(
+        rom[0],
+        test.expected_cycles + 1,
+        "failed on opcode: 0x{:0>2X}",
+        test.opcode
+    );
 }
 
 #[test]
-fn count_load_a_immediate() {
-    let bus = TestBus { rom: [0; 0xffff] };
-
-    let prog = create_prog(vec![0xa9, 0x69]);
-
-    let mut core = Core::new(bus, prog.to_vec()).unwrap();
-    core.run();
-
-    let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 3);
+fn test_lda_cycle_counts() {
+    vec![
+        Test::new(0xa9, 2),
+        Test::new(0xa5, 3),
+        Test::new(0xb5, 4),
+        Test::new(0xad, 4),
+        Test::new(0xbd, 4),
+        Test::new(0xb9, 4),
+        Test::new(0xa1, 6),
+        Test::new(0xb1, 5),
+    ]
+    .into_iter()
+    .for_each(|t| run_test(t));
 }
 
 #[test]
-fn count_load_a_absolute() {
-    let bus = TestBus { rom: [0; 0xffff] };
-    let prog = create_prog(vec![0xad, 0xfd, 0xff]);
-    let mut core = Core::new(bus, prog.to_vec()).unwrap();
-    core.run();
-
-    let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 5);
+fn test_ldx_cycle_counts() {
+    vec![
+        Test::new(0xa2, 2),
+        Test::new(0xa6, 3),
+        Test::new(0xb6, 4),
+        Test::new(0xae, 4),
+        Test::new(0xbe, 4),
+    ]
+    .into_iter()
+    .for_each(|t| run_test(t));
 }
 
 #[test]
-fn count_load_a_zeropage() {
-    let bus = TestBus { rom: [0; 0xffff] };
-    let prog = create_prog(vec![0xa5, 0x69]);
-    let mut core = Core::new(bus, prog.to_vec()).unwrap();
-    core.run();
-
-    let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 4);
-}
-
-#[test]
-fn count_load_a_zeropage_x() {
-    let bus = TestBus { rom: [0; 0xffff] };
-    let prog = create_prog(vec![0xb5, 0x69]);
-    let mut core = Core::new(bus, prog.to_vec()).unwrap();
-    core.run();
-
-    let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 5);
-}
-
-#[test]
-fn count_load_a_absolute_x() {
-    let bus = TestBus { rom: [0; 0xffff] };
-    let prog = create_prog(vec![0xbd, 0x42, 0x42]);
-    let mut core = Core::new(bus, prog.to_vec()).unwrap();
-    core.run();
-
-    let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 5);
-}
-
-#[test]
-fn count_load_a_indirect_x() {
-    let bus = TestBus { rom: [0; 0xffff] };
-    let prog = create_prog(vec![0xa1, 0x69]);
-    let mut core = Core::new(bus, prog.to_vec()).unwrap();
-    core.run();
-
-    let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 7);
-}
-
-#[test]
-fn count_load_a_indirect_y() {
-    let bus = TestBus { rom: [0; 0xffff] };
-    let prog = create_prog(vec![0xb1, 0x69]);
-    let mut core = Core::new(bus, prog.to_vec()).unwrap();
-    core.run();
-
-    let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 6);
+fn test_ldy_cycle_counts() {
+    vec![
+        Test::new(0xa0, 2),
+        Test::new(0xa4, 3),
+        Test::new(0xb4, 4),
+        Test::new(0xac, 4),
+        Test::new(0xbc, 4),
+    ]
+    .into_iter()
+    .for_each(|t| run_test(t));
 }
