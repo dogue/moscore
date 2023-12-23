@@ -105,6 +105,11 @@ impl Core {
             0xB9 => self.lda_absolute_indexed(self.idy),
             0xA1 => self.lda_indirect_x(),
             0xB1 => self.lda_indirect_y(),
+            0xA2 => self.ldx_immediate(),
+            0xA6 => self.ldx_zeropage(),
+            0xB6 => self.ldx_zeropage_y(),
+            0xAE => self.ldx_absolute(),
+            0xBE => self.ldx_absolute_y(),
             _ => self.halted = true,
         }
     }
@@ -120,8 +125,7 @@ impl Core {
     // 0xA5
     fn lda_zeropage(&mut self) {
         let low = self.fetch();
-        let high = 0x00;
-        let addr = self.addr_from_bytes(low, high);
+        let addr = self.addr_from_bytes(low, 0x00);
         self.acc = self.read_bus(addr);
     }
 
@@ -154,7 +158,7 @@ impl Core {
         self.acc = self.read_bus(addr);
     }
 
-    // A1
+    // 0xA1
     fn lda_indirect_x(&mut self) {
         let byte = self.fetch() + self.idx;
         let addr = self.addr_from_bytes(byte, 0x00);
@@ -165,7 +169,7 @@ impl Core {
         self.acc = self.read_bus(indirect);
     }
 
-    // B1
+    // 0xB1
     fn lda_indirect_y(&mut self) {
         let byte = self.fetch();
         let addr = self.addr_from_bytes(byte, 0x00);
@@ -176,5 +180,49 @@ impl Core {
         }
         let indirect = self.addr_from_bytes(low, high) + self.idy as u16;
         self.acc = self.read_bus(indirect);
+    }
+}
+
+// LDX
+impl Core {
+    // 0xA2
+    fn ldx_immediate(&mut self) {
+        self.idx = self.fetch();
+    }
+
+    // 0xA6
+    fn ldx_zeropage(&mut self) {
+        let low = self.fetch();
+        let addr = self.addr_from_bytes(low, 0x00);
+        self.idx = self.read_bus(addr);
+    }
+
+    // 0xB6
+    fn ldx_zeropage_y(&mut self) {
+        let low = self.fetch() + self.idy;
+        let addr = self.addr_from_bytes(low, 0x00);
+        self.clock_bus();
+        self.idx = self.read_bus(addr);
+    }
+
+    // 0xAE
+    fn ldx_absolute(&mut self) {
+        let low = self.fetch();
+        let high = self.fetch();
+        let addr = self.addr_from_bytes(low, high);
+        self.idx = self.read_bus(addr);
+    }
+
+    // 0xBE
+    fn ldx_absolute_y(&mut self) {
+        let index = self.idy;
+        let low = self.fetch();
+        let high = self.fetch();
+        let mut addr = self.addr_from_bytes(low, high);
+        addr += index as u16;
+        if self.page_crossed(low, index) {
+            self.clock_bus();
+        }
+        self.idx = self.read_bus(addr);
     }
 }
