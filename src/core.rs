@@ -46,13 +46,8 @@ impl Core {
         self.halted = false;
     }
 
-    pub fn dump(&self) {
-        println!("ACC: {:x}", self.acc);
-        println!("IDX: {:x}", self.idx);
-        println!("IDY: {:x}", self.idy);
-        println!("SP: {:x}", self.sp);
-        println!("PC: {:x}", self.pc);
-        println!("FLAGS: {:0>8b}", self.status);
+    pub fn dump_status(&self) -> u8 {
+        self.status
     }
 
     pub fn run(&mut self) {
@@ -81,6 +76,11 @@ impl Core {
         byte
     }
 
+    fn write_bus(&mut self, addr: u16, byte: u8) {
+        self.bus.borrow_mut().write(addr, byte);
+        self.clock_bus();
+    }
+
     fn fetch(&mut self) -> u8 {
         let byte = self.read_bus(self.pc);
         self.pc += 1;
@@ -93,6 +93,14 @@ impl Core {
 
     fn page_crossed(&self, byte: u8, index: u8) -> bool {
         (byte as u16) + (index as u16) > 255
+    }
+
+    fn set_carry(&mut self, cond: bool) {
+        if cond {
+            self.status |= 0x01;
+        } else {
+            self.status &= 0xfe;
+        }
     }
 
     fn decode(&mut self, byte: u8) {
@@ -115,6 +123,11 @@ impl Core {
             0xB4 => self.ldy_zeropage_x(),
             0xAC => self.ldy_absolute(),
             0xBC => self.ldy_absolute_x(),
+            0x4A => self.lsr_a(),
+            0x46 => self.lsr_zeropage(),
+            0x56 => self.lsr_zeropage_x(),
+            0x4E => self.lsr_absolute(),
+            0x5E => self.lsr_absolute_x(),
             _ => self.halted = true,
         }
     }
@@ -273,5 +286,61 @@ impl Core {
             self.clock_bus();
         }
         self.idy = self.read_bus(addr);
+    }
+}
+
+// LSR
+impl Core {
+    fn shift_byte(&mut self, byte: u8) -> u8 {
+        let shifted = byte >> 1;
+        self.set_carry(byte & 0x01 != 0);
+        self.clock_bus();
+        shifted
+    }
+
+    // 0x4A
+    fn lsr_a(&mut self) {
+        self.acc = self.shift_byte(self.acc);
+    }
+
+    // 0x46
+    fn lsr_zeropage(&mut self) {
+        let low = self.fetch();
+        let addr = self.addr_from_bytes(low, 0x00);
+        let byte = self.read_bus(addr);
+        let byte = self.shift_byte(byte);
+        self.write_bus(addr, byte);
+    }
+
+    // 0x56
+    fn lsr_zeropage_x(&mut self) {
+        let low = self.fetch() + self.idx;
+        let addr = self.addr_from_bytes(low, 0x00);
+        self.clock_bus();
+        let byte = self.read_bus(addr);
+        let byte = self.shift_byte(byte);
+        self.write_bus(addr, byte);
+    }
+
+    // 0x4E
+    fn lsr_absolute(&mut self) {
+        let low = self.fetch();
+        let high = self.fetch();
+        let addr = self.addr_from_bytes(low, high);
+        let byte = self.read_bus(addr);
+        let byte = self.shift_byte(byte);
+        self.write_bus(addr, byte);
+    }
+
+    // 0x5E
+    fn lsr_absolute_x(&mut self) {
+        let low = self.fetch();
+        let high = self.fetch();
+        let mut addr = self.addr_from_bytes(low, high);
+        addr += self.idx as u16;
+        self.clock_bus();
+        let byte = self.read_bus(addr);
+        let byte = self.shift_byte(byte);
+        self.write_bus(addr, byte);
     }
 }

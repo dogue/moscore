@@ -15,7 +15,7 @@ impl Bus for CycleCounterBus {
     }
 
     fn on_clock(&mut self) {
-        self.rom[0x0000] += 1;
+        self.rom[0x4242] += 1;
     }
 
     fn load_rom(&mut self, prog: Vec<u8>) -> Result<(), error::BusError> {
@@ -60,7 +60,7 @@ fn run_test(test: Test) {
     let rom = core.get_bus().dump_rom();
     // add one to account for fetching the invalid byte that halts
     assert_eq!(
-        rom[0],
+        rom[0x4242],
         test.expected_cycles + 1,
         "failed on opcode: 0x{:0>2X}",
         test.opcode
@@ -104,6 +104,19 @@ fn test_ldy_cycle_counts() {
         Test::new(0xb4, 4),
         Test::new(0xac, 4),
         Test::new(0xbc, 4),
+    ]
+    .into_iter()
+    .for_each(|t| run_test(t));
+}
+
+#[test]
+fn test_lsr_cycle_counts() {
+    vec![
+        Test::new(0x4a, 2),
+        Test::new(0x46, 5),
+        Test::new(0x56, 6),
+        Test::new(0x4e, 6),
+        Test::new(0x5e, 7),
     ]
     .into_iter()
     .for_each(|t| run_test(t));
