@@ -52,5 +52,16 @@ fn count_load_a_immediate() {
     core.run();
 
     let rom = core.get_bus().dump_rom();
-    assert_eq!(rom[0], 2);
+    assert_eq!(rom[0], 3);
+}
+
+#[test]
+fn count_load_a_absolute() {
+    let bus = TestBus { rom: [0; 0xffff] };
+    let prog = create_prog(vec![0xad, 0xfd, 0xff]);
+    let mut core = Core::new(bus, prog.to_vec()).unwrap();
+    core.run();
+
+    let rom = core.get_bus().dump_rom();
+    assert_eq!(rom[0], 5);
 }

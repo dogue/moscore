@@ -78,16 +78,14 @@ impl Core {
     }
 
     fn read_bus(&self, addr: u16) -> u8 {
-        let mut bus = self.bus.borrow_mut();
-        let byte = bus.read(addr);
-        bus.on_clock();
+        let byte = self.bus.borrow_mut().read(addr);
+        self.clock_bus();
         byte
     }
 
     fn fetch(&mut self) -> u8 {
-        let mut bus = self.bus.borrow_mut();
-        let byte = bus.read(self.pc);
-        bus.on_clock();
+        let byte = self.bus.borrow_mut().read(self.pc);
+        self.clock_bus();
         self.pc += 1;
         byte
     }
