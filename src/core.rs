@@ -110,6 +110,11 @@ impl Core {
             0xB6 => self.ldx_zeropage_y(),
             0xAE => self.ldx_absolute(),
             0xBE => self.ldx_absolute_y(),
+            0xA0 => self.ldy_immediate(),
+            0xA4 => self.ldy_zeropage(),
+            0xB4 => self.ldy_zeropage_x(),
+            0xAC => self.ldy_absolute(),
+            0xBC => self.ldy_absolute_x(),
             _ => self.halted = true,
         }
     }
@@ -224,5 +229,49 @@ impl Core {
             self.clock_bus();
         }
         self.idx = self.read_bus(addr);
+    }
+}
+
+// LDY
+impl Core {
+    // 0xA0
+    fn ldy_immediate(&mut self) {
+        self.idy = self.fetch();
+    }
+
+    // 0xA4
+    fn ldy_zeropage(&mut self) {
+        let low = self.fetch();
+        let addr = self.addr_from_bytes(low, 0x00);
+        self.idy = self.read_bus(addr);
+    }
+
+    // 0xB4
+    fn ldy_zeropage_x(&mut self) {
+        let low = self.fetch() + self.idx;
+        let addr = self.addr_from_bytes(low, 0x00);
+        self.clock_bus();
+        self.idy = self.read_bus(addr);
+    }
+
+    // 0xAC
+    fn ldy_absolute(&mut self) {
+        let low = self.fetch();
+        let high = self.fetch();
+        let addr = self.addr_from_bytes(low, high);
+        self.idy = self.read_bus(addr);
+    }
+
+    // 0xBC
+    fn ldy_absolute_x(&mut self) {
+        let index = self.idx;
+        let low = self.fetch();
+        let high = self.fetch();
+        let mut addr = self.addr_from_bytes(low, high);
+        addr += index as u16;
+        if self.page_crossed(low, index) {
+            self.clock_bus();
+        }
+        self.idy = self.read_bus(addr);
     }
 }
