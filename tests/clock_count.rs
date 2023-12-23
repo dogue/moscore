@@ -98,3 +98,25 @@ fn count_load_a_absolute_x() {
     let rom = core.get_bus().dump_rom();
     assert_eq!(rom[0], 5);
 }
+
+#[test]
+fn count_load_a_indirect_x() {
+    let bus = TestBus { rom: [0; 0xffff] };
+    let prog = create_prog(vec![0xa1, 0x69]);
+    let mut core = Core::new(bus, prog.to_vec()).unwrap();
+    core.run();
+
+    let rom = core.get_bus().dump_rom();
+    assert_eq!(rom[0], 7);
+}
+
+#[test]
+fn count_load_a_indirect_y() {
+    let bus = TestBus { rom: [0; 0xffff] };
+    let prog = create_prog(vec![0xb1, 0x69]);
+    let mut core = Core::new(bus, prog.to_vec()).unwrap();
+    core.run();
+
+    let rom = core.get_bus().dump_rom();
+    assert_eq!(rom[0], 6);
+}
