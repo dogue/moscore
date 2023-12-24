@@ -265,7 +265,7 @@ impl Core {
             _ => unimplemented!(),
         };
 
-        self.idy = self.read_bus(addr);
+        self.idx = self.read_bus(addr);
     }
 
     fn ldy(&mut self, mode: Mode) {
