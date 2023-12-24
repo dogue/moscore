@@ -3,6 +3,7 @@ use crate::traits::Bus;
 mod lda;
 mod ldx;
 mod ldy;
+mod lsr;
 
 #[derive(Debug, Clone)]
 struct MockBus {
