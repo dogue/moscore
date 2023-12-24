@@ -1,4 +1,4 @@
-use moscore::{core::Core, traits::Bus, *};
+use moscore::{cpu::Core, traits::Bus, *};
 
 #[derive(Debug)]
 struct CycleCounterBus {
