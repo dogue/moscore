@@ -137,6 +137,7 @@ impl Core {
             0x56 => self.shift_right(Mode::ZeroPage(Offset::X)),
             0x4E => self.shift_right(Mode::Absolute(Offset::None)),
             0x5E => self.shift_right(Mode::Absolute(Offset::X)),
+            0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
     }
@@ -144,17 +145,15 @@ impl Core {
 
 // addressing helpers
 impl Core {
-    fn get_immediate(&mut self) -> u8 {
-        self.fetch()
-    }
-
-    fn get_absolute(&mut self, offset: Offset) -> (u8, u16) {
+    /// returns (address: u16, page_crossed: bool)
+    fn get_absolute(&mut self, offset: Offset) -> (u16, bool) {
+        let mut page_crossed = false;
         match offset {
             Offset::None => {
                 let low = self.fetch();
                 let high = self.fetch();
                 let addr = self.addr_from_bytes(low, high);
-                (self.read_bus(addr), addr)
+                (addr, page_crossed)
             }
             Offset::X => {
                 let low = self.fetch();
@@ -163,8 +162,9 @@ impl Core {
                 let addr = addr + self.idx as u16;
                 if self.page_crossed(low, self.idx) {
                     self.clock_bus();
+                    page_crossed = true;
                 }
-                (self.read_bus(addr), addr)
+                (addr, page_crossed)
             }
             Offset::Y => {
                 let low = self.fetch();
@@ -173,86 +173,104 @@ impl Core {
                 let addr = addr + self.idy as u16;
                 if self.page_crossed(low, self.idy) {
                     self.clock_bus();
+                    page_crossed = true;
                 }
-                (self.read_bus(addr), addr)
+                (addr, page_crossed)
             }
         }
     }
 
-    fn get_zeropage(&mut self, offset: Offset) -> (u8, u16) {
+    fn get_zeropage(&mut self, offset: Offset) -> u16 {
         match offset {
             Offset::None => {
                 let low = self.fetch();
                 let addr = self.addr_from_bytes(low, 0x00);
-                (self.read_bus(addr), addr)
+                addr
             }
             Offset::X => {
-                let low = self.fetch() + self.idx;
+                let low = self.fetch().wrapping_add(self.idx);
                 self.clock_bus();
                 let addr = self.addr_from_bytes(low, 0x00);
-                (self.read_bus(addr), addr)
+                addr
             }
             Offset::Y => {
-                let low = self.fetch() + self.idy;
+                let low = self.fetch().wrapping_add(self.idy);
                 self.clock_bus();
                 let addr = self.addr_from_bytes(low, 0x00);
-                (self.read_bus(addr), addr)
+                addr
             }
         }
     }
 
-    fn get_indexed_indirect(&mut self) -> (u8, u16) {
-        let byte = self.fetch() + self.idx;
+    fn get_indexed_indirect(&mut self) -> u16 {
+        let byte = self.fetch().wrapping_add(self.idx);
         let addr = self.addr_from_bytes(byte, 0x00);
         let low = self.read_bus(addr);
         let high = self.read_bus(addr + 1);
         self.clock_bus();
         let indirect = self.addr_from_bytes(low, high);
-        (self.read_bus(indirect), indirect)
+        indirect
     }
 
-    fn get_indirect_indexed(&mut self) -> (u8, u16) {
+    fn get_indirect_indexed(&mut self) -> (u16, bool) {
+        let mut page_crossed = false;
         let byte = self.fetch();
         let addr = self.addr_from_bytes(byte, 0x00);
         let low = self.read_bus(addr);
         let high = self.read_bus(addr + 1);
         if self.page_crossed(low, self.idy) {
             self.clock_bus();
+            page_crossed = true;
         }
         let indirect = self.addr_from_bytes(low, high) + self.idy as u16;
-        (self.read_bus(indirect), indirect)
+        (indirect, page_crossed)
     }
 }
 
 // instructions
 impl Core {
     fn load_a(&mut self, mode: Mode) {
-        self.acc = match mode {
-            Mode::Immediate => self.get_immediate(),
+        let addr = match mode {
+            Mode::Immediate => {
+                self.acc = self.fetch();
+                return;
+            }
             Mode::Absolute(offset) => self.get_absolute(offset).0,
-            Mode::ZeroPage(offset) => self.get_zeropage(offset).0,
-            Mode::IndexedIndirect => self.get_indexed_indirect().0,
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::IndexedIndirect => self.get_indexed_indirect(),
             Mode::IndirectIndexed => self.get_indirect_indexed().0,
             _ => unimplemented!(),
-        }
+        };
+
+        self.acc = self.read_bus(addr);
     }
 
     fn load_x(&mut self, mode: Mode) {
-        self.idx = match mode {
-            Mode::Immediate => self.get_immediate(),
+        let addr = match mode {
+            Mode::Immediate => {
+                self.idx = self.fetch();
+                return;
+            }
             Mode::Absolute(offset) => self.get_absolute(offset).0,
-            Mode::ZeroPage(offset) => self.get_zeropage(offset).0,
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
             _ => unimplemented!(),
-        }
+        };
+
+        self.idy = self.read_bus(addr);
     }
 
     fn load_y(&mut self, mode: Mode) {
-        self.idy = match mode {
-            Mode::Immediate => self.get_immediate(),
+        let addr = match mode {
+            Mode::Immediate => {
+                self.idy = self.fetch();
+                return;
+            }
             Mode::Absolute(offset) => self.get_absolute(offset).0,
-            Mode::ZeroPage(offset) => self.get_zeropage(offset).0,
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
             _ => unimplemented!(),
-        }
+        };
+
+        self.idy = self.read_bus(addr);
     }
 
     fn shift_right(&mut self, mode: Mode) {
@@ -262,19 +280,22 @@ impl Core {
                 self.acc = self.shift_byte(byte);
             }
             Mode::ZeroPage(offset) => {
-                let (byte, addr) = self.get_zeropage(offset);
+                let addr = self.get_zeropage(offset);
+                let byte = self.read_bus(addr);
                 let byte = self.shift_byte(byte);
                 self.write_bus(addr, byte);
             }
             Mode::Absolute(offset) => {
-                let (byte, addr) = self.get_absolute(offset);
-                if offset == Offset::X {
+                let (addr, crossed) = self.get_absolute(offset);
+                // shitty little hack to keep the clock cycles correct
+                if offset == Offset::X && !crossed {
                     self.clock_bus();
                 }
+                let byte = self.read_bus(addr);
                 let byte = self.shift_byte(byte);
                 self.write_bus(addr, byte);
             }
-            _ => unimplemented!(),
+            _ => unimplemented!("invalid addressing mode for LSR"),
         }
     }
 }
@@ -299,6 +320,44 @@ mod test {
         let mut prog = create_prog(0xa9);
         prog[0x0001] = 0x69;
         let mut core = Core::new(bus, prog).unwrap();
+        core.run();
+
+        assert_eq!(core.acc, 0x69);
+    }
+
+    #[test]
+    fn test_load_a_zeropage() {
+        let mut bus = DefaultBus::default();
+        let mut prog = create_prog(0xa5);
+        prog[0x0001] = 0x42;
+        bus.write(0x0042, 0x69);
+        let mut core = Core::new(bus, prog).unwrap();
+        core.run();
+
+        assert_eq!(core.acc, 0x69);
+    }
+
+    #[test]
+    fn test_load_a_zeropage_x() {
+        let mut bus = DefaultBus::default();
+        let mut prog = create_prog(0xb5);
+        prog[0x0001] = 0x40;
+        bus.write(0x0042, 0x69);
+        let mut core = Core::new(bus, prog.clone()).unwrap();
+        core.idx = 0x02;
+        core.run();
+
+        assert_eq!(core.acc, 0x69);
+    }
+
+    #[test]
+    fn test_load_a_zeropage_x_with_wrap() {
+        let mut bus = DefaultBus::default();
+        let mut prog = create_prog(0xb5);
+        prog[0x0001] = 0xff;
+        bus.write(0x0001, 0x69);
+        let mut core = Core::new(bus, prog).unwrap();
+        core.idx = 0x02;
         core.run();
 
         assert_eq!(core.acc, 0x69);
