@@ -1,5 +1,6 @@
 use crate::traits::Bus;
 
+mod adc;
 mod lda;
 mod ldx;
 mod ldy;
