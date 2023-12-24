@@ -1,4 +1,4 @@
-pub mod cpu;
+pub mod core;
 pub mod default;
 pub mod error;
 pub mod traits;

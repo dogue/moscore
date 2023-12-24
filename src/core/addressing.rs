@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Mode {
     Accumulator,
