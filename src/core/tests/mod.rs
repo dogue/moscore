@@ -6,6 +6,8 @@ mod lda;
 mod ldx;
 mod ldy;
 mod lsr;
+mod rol;
+mod ror;
 
 #[derive(Debug, Clone)]
 struct MockBus {

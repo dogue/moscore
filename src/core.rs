@@ -102,13 +102,16 @@ impl Core {
         (byte as u16) + (index as u16) > 255
     }
 
-    fn shift_byte(&mut self, byte: u8) -> u8 {
+    fn shift_byte_right(&mut self, byte: u8) -> u8 {
         let shifted = byte >> 1;
-        if byte & 0x01 != 0 {
-            self.status.set_carry(true);
-        } else {
-            self.status.set_carry(false);
-        }
+        self.status.set_carry((byte & 0x1) != 0);
+        self.clock_bus();
+        shifted
+    }
+
+    fn shift_byte_left(&mut self, byte: u8) -> u8 {
+        let shifted = byte << 1;
+        self.status.set_carry((byte & 0x80) != 0);
         self.clock_bus();
         shifted
     }
@@ -154,6 +157,16 @@ impl Core {
             0x39 => self.and(Mode::Absolute(Offset::Y)),
             0x21 => self.and(Mode::IndexedIndirect),
             0x31 => self.and(Mode::IndirectIndexed),
+            0x6A => self.ror(Mode::Accumulator),
+            0x66 => self.ror(Mode::ZeroPage(Offset::None)),
+            0x76 => self.ror(Mode::ZeroPage(Offset::X)),
+            0x6E => self.ror(Mode::Absolute(Offset::None)),
+            0x7E => self.ror(Mode::Absolute(Offset::X)),
+            0x2A => self.rol(Mode::Accumulator),
+            0x26 => self.rol(Mode::ZeroPage(Offset::None)),
+            0x36 => self.rol(Mode::ZeroPage(Offset::X)),
+            0x2E => self.rol(Mode::Absolute(Offset::None)),
+            0x3E => self.rol(Mode::Absolute(Offset::X)),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -329,13 +342,13 @@ impl Core {
         match mode {
             Mode::Accumulator => {
                 let byte = self.acc;
-                self.acc = self.shift_byte(byte);
+                self.acc = self.shift_byte_right(byte);
                 self.set_nz(self.acc);
             }
             Mode::ZeroPage(offset) => {
                 let addr = self.get_zeropage(offset);
                 let byte = self.read_bus(addr);
-                let byte = self.shift_byte(byte);
+                let byte = self.shift_byte_right(byte);
                 self.write_bus(addr, byte);
                 self.set_nz(byte);
             }
@@ -346,7 +359,7 @@ impl Core {
                     self.clock_bus();
                 }
                 let byte = self.read_bus(addr);
-                let byte = self.shift_byte(byte);
+                let byte = self.shift_byte_right(byte);
                 self.write_bus(addr, byte);
                 self.set_nz(byte);
             }
@@ -411,6 +424,68 @@ impl Core {
 
         self.acc &= byte;
         self.set_nz(self.acc);
+    }
+
+    fn ror(&mut self, mode: Mode) {
+        match mode {
+            Mode::Accumulator => {
+                // shift_byte_right() clobbers the carry flag
+                let carry = self.status.carry() as u8;
+                self.acc = self.shift_byte_right(self.acc) | carry << 7;
+                self.set_nz(self.acc);
+            }
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                let carry = self.status.carry() as u8;
+                let byte = self.read_bus(addr);
+                let shifted = self.shift_byte_right(byte) | carry << 7;
+                self.write_bus(addr, shifted);
+                self.set_negative(shifted);
+            }
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                let carry = self.status.carry() as u8;
+                let byte = self.read_bus(addr);
+                let shifted = self.shift_byte_right(byte) | carry << 7;
+                self.write_bus(addr, shifted);
+                self.set_negative(shifted);
+            }
+            _ => unimplemented!("invalid addressng mode for ROR"),
+        }
+    }
+
+    fn rol(&mut self, mode: Mode) {
+        match mode {
+            Mode::Accumulator => {
+                // shift_byte_left() clobbers the carry flag
+                let carry = self.status.carry() as u8;
+                self.acc = self.shift_byte_left(self.acc) | carry;
+                self.set_nz(self.acc);
+            }
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                let carry = self.status.carry() as u8;
+                let byte = self.read_bus(addr);
+                let shifted = self.shift_byte_left(byte) | carry;
+                self.write_bus(addr, shifted);
+                self.set_negative(shifted);
+            }
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                let carry = self.status.carry() as u8;
+                let byte = self.read_bus(addr);
+                let shifted = self.shift_byte_left(byte) | carry;
+                self.write_bus(addr, shifted);
+                self.set_negative(shifted);
+            }
+            _ => unimplemented!("invalid addressng mode for ROR"),
+        }
     }
 }
 
