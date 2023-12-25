@@ -183,7 +183,7 @@ fn test_adc_indirect_indexed_page_crossed() {
 #[test]
 fn test_adc_status_flags() {
     let bus = MockBus::new();
-    let program = vec![0x69, 0xfe, 0x69, 0x01];
+    let program = vec![0x69, 0xfe, 0x69, 0x01, 0x69, 0x50, 0x69, 0x80];
     let mut core = Core::new(bus, program).unwrap();
     core.acc = 0x1;
 
@@ -192,4 +192,12 @@ fn test_adc_status_flags() {
 
     core.step();
     assert_eq!(core.status.as_byte(), 0b0000_0011);
+
+    core.acc = 0x50;
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b1100_0000);
+
+    core.acc = 0x80;
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b0100_0011);
 }

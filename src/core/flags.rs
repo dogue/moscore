@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #[derive(Debug)]
 pub struct Flags {
     carry: bool,
@@ -26,28 +27,56 @@ impl Flags {
         self.carry = value;
     }
 
+    pub fn carry(&self) -> bool {
+        self.carry
+    }
+
     pub fn set_zero(&mut self, value: bool) {
         self.zero = value;
+    }
+
+    pub fn zero(&self) -> bool {
+        self.zero
     }
 
     pub fn set_interrupt(&mut self, value: bool) {
         self.interrupt_disable = value;
     }
 
+    pub fn interrupt(&self) -> bool {
+        self.interrupt_disable
+    }
+
     pub fn set_decimal(&mut self, value: bool) {
         self.decimal_mode = value;
+    }
+
+    pub fn decimal(&self) -> bool {
+        self.decimal_mode
     }
 
     pub fn set_break(&mut self, value: bool) {
         self.break_command = value;
     }
 
+    pub fn break_cmd(&self) -> bool {
+        self.break_command
+    }
+
     pub fn set_overflow(&mut self, value: bool) {
         self.overflow = value;
     }
 
+    pub fn overflow(&self) -> bool {
+        self.overflow
+    }
+
     pub fn set_negative(&mut self, value: bool) {
         self.negative = value;
+    }
+
+    pub fn negative(&self) -> bool {
+        self.negative
     }
 
     pub fn as_byte(&self) -> u8 {

@@ -146,6 +146,14 @@ impl Core {
             0x79 => self.adc(Mode::Absolute(Offset::Y)),
             0x61 => self.adc(Mode::IndexedIndirect),
             0x71 => self.adc(Mode::IndirectIndexed),
+            0x29 => self.and(Mode::Immediate),
+            0x25 => self.and(Mode::ZeroPage(Offset::None)),
+            0x35 => self.and(Mode::ZeroPage(Offset::X)),
+            0x2D => self.and(Mode::Absolute(Offset::None)),
+            0x3D => self.and(Mode::Absolute(Offset::X)),
+            0x39 => self.and(Mode::Absolute(Offset::Y)),
+            0x21 => self.and(Mode::IndexedIndirect),
+            0x31 => self.and(Mode::IndirectIndexed),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -368,11 +376,40 @@ impl Core {
             _ => unimplemented!("invalid addressing mode for ADC"),
         };
 
-        let (res, carry) = self.acc.overflowing_add(byte);
+        let carry_bit = self.status.carry() as u8;
+
+        let (partial, carry1) = byte.overflowing_add(carry_bit);
+        let (res, carry2) = self.acc.overflowing_add(partial);
         let overflow = self.check_overflow(self.acc, byte, res);
         self.acc = res;
-        self.status.set_carry(carry);
+        self.status.set_carry(carry1 || carry2);
         self.status.set_overflow(overflow);
+        self.set_nz(self.acc);
+    }
+
+    fn and(&mut self, mode: Mode) {
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                self.read_bus(addr)
+            }
+            Mode::Absolute(offset) => {
+                let addr = self.get_absolute(offset).0;
+                self.read_bus(addr)
+            }
+            Mode::IndexedIndirect => {
+                let addr = self.get_indexed_indirect();
+                self.read_bus(addr)
+            }
+            Mode::IndirectIndexed => {
+                let addr = self.get_indirect_indexed().0;
+                self.read_bus(addr)
+            }
+            _ => unimplemented!("invalid addressing mode for AND"),
+        };
+
+        self.acc &= byte;
         self.set_nz(self.acc);
     }
 }
