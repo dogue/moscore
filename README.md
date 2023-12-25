@@ -6,7 +6,9 @@ Welcome to Moscore! This project is currently under development and not ready fo
 
 ## Project Goals
 
-The primary goal of Moscore is to enable users of the crate to craft emulators for a variety of systems. We aim to achieve this by providing a complete, thoroughly-tested implementation of the 6502 that can accept custom memory mappings and peripherals which act as the "system bus".
+The primary goal of Moscore is to enable users of the crate to craft emulators for a variety of systems. We aim to achieve this by providing a complete, thoroughly-tested, and *mostly* cycle-accurate implementation of the 6502 that can accept custom memory mappings and peripherals which act as the "system bus".
+
+As development progresses and the project nears completion, we plan to provide a detailed manual on how to develop an emulator with Moscore, as well as an example reference project.
 
 ## Current State
 
