@@ -179,3 +179,17 @@ fn test_adc_indirect_indexed_page_crossed() {
     let clocks = core.get_bus().read(0xc10c);
     assert_eq!(clocks, 6);
 }
+
+#[test]
+fn test_adc_status_flags() {
+    let bus = MockBus::new();
+    let program = vec![0x69, 0xfe, 0x69, 0x01];
+    let mut core = Core::new(bus, program).unwrap();
+    core.acc = 0x1;
+
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b1000_0000);
+
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b0000_0011);
+}

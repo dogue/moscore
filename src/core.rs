@@ -2,8 +2,12 @@
 use crate::{error::CoreError, traits::Bus};
 use std::{cell::RefCell, cell::RefMut, rc::Rc};
 
-use self::addressing::{Mode, Offset};
+use self::{
+    addressing::{Mode, Offset},
+    flags::Flags,
+};
 mod addressing;
+mod flags;
 
 #[derive(Debug)]
 pub struct Core {
@@ -12,7 +16,7 @@ pub struct Core {
     idy: u8,
     sp: u8,
     pc: u16,
-    status: u8,
+    status: Flags,
     bus: Rc<RefCell<dyn Bus>>,
     halted: bool,
 }
@@ -25,7 +29,7 @@ impl Core {
             idy: 0,
             sp: 0,
             pc: 0,
-            status: 0,
+            status: Flags::new(),
             bus: Rc::new(RefCell::new(bus)),
             halted: true,
         };
@@ -50,7 +54,7 @@ impl Core {
     }
 
     pub fn dump_status(&self) -> u8 {
-        self.status
+        self.status.as_byte()
     }
 
     pub fn run(&mut self) {
@@ -98,17 +102,13 @@ impl Core {
         (byte as u16) + (index as u16) > 255
     }
 
-    fn set_carry(&mut self, cond: bool) {
-        if cond {
-            self.status |= 0x01;
-        } else {
-            self.status &= 0xfe;
-        }
-    }
-
     fn shift_byte(&mut self, byte: u8) -> u8 {
         let shifted = byte >> 1;
-        self.set_carry(byte & 0x01 != 0);
+        if byte & 0x01 != 0 {
+            self.status.set_carry(true);
+        } else {
+            self.status.set_carry(false);
+        }
         self.clock_bus();
         shifted
     }
@@ -149,6 +149,35 @@ impl Core {
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
+    }
+}
+
+// status flags
+impl Core {
+    fn set_nz(&mut self, byte: u8) {
+        self.set_zero(byte).set_negative(byte);
+    }
+
+    fn set_zero(&mut self, byte: u8) -> &mut Self {
+        if byte == 0 {
+            self.status.set_zero(true);
+        } else {
+            self.status.set_zero(false);
+        }
+        self
+    }
+
+    fn set_negative(&mut self, byte: u8) -> &mut Self {
+        if byte & 0b1000_0000 != 0 {
+            self.status.set_negative(true);
+        } else {
+            self.status.set_negative(false);
+        }
+        self
+    }
+
+    fn check_overflow(&self, original: u8, value: u8, result: u8) -> bool {
+        ((original ^ value) & 0x80 == 0) && ((original ^ result) & 0x80 != 0)
     }
 }
 
@@ -242,6 +271,7 @@ impl Core {
         let addr = match mode {
             Mode::Immediate => {
                 self.acc = self.fetch();
+                self.set_nz(self.acc);
                 return;
             }
             Mode::Absolute(offset) => self.get_absolute(offset).0,
@@ -252,12 +282,14 @@ impl Core {
         };
 
         self.acc = self.read_bus(addr);
+        self.set_nz(self.acc);
     }
 
     fn ldx(&mut self, mode: Mode) {
         let addr = match mode {
             Mode::Immediate => {
                 self.idx = self.fetch();
+                self.set_nz(self.idx);
                 return;
             }
             Mode::Absolute(offset) => self.get_absolute(offset).0,
@@ -266,12 +298,14 @@ impl Core {
         };
 
         self.idx = self.read_bus(addr);
+        self.set_nz(self.idx);
     }
 
     fn ldy(&mut self, mode: Mode) {
         let addr = match mode {
             Mode::Immediate => {
                 self.idy = self.fetch();
+                self.set_nz(self.idy);
                 return;
             }
             Mode::Absolute(offset) => self.get_absolute(offset).0,
@@ -280,6 +314,7 @@ impl Core {
         };
 
         self.idy = self.read_bus(addr);
+        self.set_nz(self.idy);
     }
 
     fn lsr(&mut self, mode: Mode) {
@@ -287,12 +322,14 @@ impl Core {
             Mode::Accumulator => {
                 let byte = self.acc;
                 self.acc = self.shift_byte(byte);
+                self.set_nz(self.acc);
             }
             Mode::ZeroPage(offset) => {
                 let addr = self.get_zeropage(offset);
                 let byte = self.read_bus(addr);
                 let byte = self.shift_byte(byte);
                 self.write_bus(addr, byte);
+                self.set_nz(byte);
             }
             Mode::Absolute(offset) => {
                 let (addr, crossed) = self.get_absolute(offset);
@@ -303,6 +340,7 @@ impl Core {
                 let byte = self.read_bus(addr);
                 let byte = self.shift_byte(byte);
                 self.write_bus(addr, byte);
+                self.set_nz(byte);
             }
             _ => unimplemented!("invalid addressing mode for LSR"),
         }
@@ -330,7 +368,12 @@ impl Core {
             _ => unimplemented!("invalid addressing mode for ADC"),
         };
 
-        self.acc = self.acc.wrapping_add(byte);
+        let (res, carry) = self.acc.overflowing_add(byte);
+        let overflow = self.check_overflow(self.acc, byte, res);
+        self.acc = res;
+        self.status.set_carry(carry);
+        self.status.set_overflow(overflow);
+        self.set_nz(self.acc);
     }
 }
 

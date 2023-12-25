@@ -77,3 +77,17 @@ fn test_lsr_absolute_x() {
     let clocks = core.get_bus().read(0xc10c);
     assert_eq!(clocks, 7);
 }
+
+#[test]
+fn test_lsr_status_flags() {
+    let bus = MockBus::new();
+    let program = vec![0x4a, 0x4a];
+    let mut core = Core::new(bus, program).unwrap();
+
+    core.acc = 0b0000_0010;
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b0000_0000);
+
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b0000_0011);
+}

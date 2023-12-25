@@ -87,3 +87,16 @@ fn test_ldx_absolute_y_page_crossed() {
     let clocks = core.get_bus().read(0xc10c);
     assert_eq!(clocks, 5);
 }
+
+#[test]
+fn test_ldx_status_flags() {
+    let bus = MockBus::new();
+    let program = vec![0xa2, 0xff, 0xa2, 0x00];
+    let mut core = Core::new(bus, program).unwrap();
+
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b1000_0000);
+
+    core.step();
+    assert_eq!(core.status.as_byte(), 0b0000_0010);
+}
