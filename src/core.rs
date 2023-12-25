@@ -186,6 +186,10 @@ impl Core {
             0x68 => self.pla(),
             0x08 => self.php(),
             0x28 => self.plp(),
+            0xE6 => self.inc(Mode::ZeroPage(Offset::None)),
+            0xF6 => self.inc(Mode::ZeroPage(Offset::X)),
+            0xEE => self.inc(Mode::Absolute(Offset::None)),
+            0xFE => self.inc(Mode::Absolute(Offset::X)),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -523,6 +527,26 @@ impl Core {
     fn plp(&mut self) {
         let byte = self.pull_stack();
         self.status.from_byte(byte);
+    }
+
+    fn inc(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for INC"),
+        };
+
+        let byte = self.read_bus(addr);
+        let byte = byte.wrapping_add(1);
+        self.clock_bus();
+        self.write_bus(addr, byte);
+        self.set_nz(byte);
     }
 }
 

@@ -2,6 +2,7 @@ use crate::traits::Bus;
 
 mod adc;
 mod and;
+mod inc;
 mod lda;
 mod ldx;
 mod ldy;
