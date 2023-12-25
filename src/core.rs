@@ -116,6 +116,21 @@ impl Core {
         shifted
     }
 
+    fn push_stack(&mut self, byte: u8) {
+        self.sp = self.sp.wrapping_sub(1);
+        self.clock_bus();
+        let addr = self.addr_from_bytes(self.sp, 0x01);
+        self.write_bus(addr, byte);
+    }
+
+    fn pull_stack(&mut self) -> u8 {
+        let addr = self.addr_from_bytes(self.sp, 0x01);
+        self.clock_bus();
+        self.sp = self.sp.wrapping_add(1);
+        self.clock_bus();
+        self.read_bus(addr)
+    }
+
     fn decode(&mut self, byte: u8) {
         match byte {
             0xA9 => self.lda(Mode::Immediate),
@@ -167,6 +182,10 @@ impl Core {
             0x36 => self.rol(Mode::ZeroPage(Offset::X)),
             0x2E => self.rol(Mode::Absolute(Offset::None)),
             0x3E => self.rol(Mode::Absolute(Offset::X)),
+            0x48 => self.pha(),
+            0x68 => self.pla(),
+            0x08 => self.php(),
+            0x28 => self.plp(),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -486,6 +505,24 @@ impl Core {
             }
             _ => unimplemented!("invalid addressng mode for ROR"),
         }
+    }
+
+    fn pha(&mut self) {
+        self.push_stack(self.acc);
+    }
+
+    fn pla(&mut self) {
+        self.acc = self.pull_stack();
+        self.set_nz(self.acc);
+    }
+
+    fn php(&mut self) {
+        self.push_stack(self.status.as_byte());
+    }
+
+    fn plp(&mut self) {
+        let byte = self.pull_stack();
+        self.status.from_byte(byte);
     }
 }
 

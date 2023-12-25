@@ -6,6 +6,7 @@ mod lda;
 mod ldx;
 mod ldy;
 mod lsr;
+mod push_pull;
 mod rol;
 mod ror;
 
