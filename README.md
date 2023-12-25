@@ -19,6 +19,8 @@ As of now, the project is in its early stages of development. Here's a brief ove
 - `DefaultBus` is provided as an example/default memory map, which splits the 64K address space evenly between RAM and ROM.
 - A suite of unit tests under `src/core/tests` to ensure reliability and correctness of the core components.
 
+If you're curious about the current progress, checking out the files in `src/core/tests/` is a good barometer for which instructions are "complete".
+
 ## Contributing
 
 While Moscore is still in the building phase, we welcome contributions and ideas from the community. Feel free to fork the repository, submit issues, or propose pull requests.
