@@ -8,6 +8,7 @@ mod asl;
 mod bit;
 mod clv;
 mod cmp;
+mod cpx;
 mod inc;
 mod jmp;
 mod jsr;

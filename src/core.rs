@@ -240,6 +240,9 @@ impl Core {
             0xD9 => self.cmp(Mode::Absolute(Offset::Y)),
             0xC1 => self.cmp(Mode::IndexedIndirect),
             0xD1 => self.cmp(Mode::IndirectIndexed),
+            0xE0 => self.cpx(Mode::Immediate),
+            0xE4 => self.cpx(Mode::ZeroPage(Offset::None)),
+            0xEC => self.cpx(Mode::Absolute(Offset::None)),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -826,12 +829,12 @@ impl Core {
             }
             Mode::ZeroPage(offset) => self.get_zeropage(offset),
             Mode::Absolute(offset) => {
-                let (addr, crossed) = self.get_absolute(offset);
+                let (addr, _) = self.get_absolute(offset);
                 addr
             }
             Mode::IndexedIndirect => self.get_indexed_indirect(),
             Mode::IndirectIndexed => {
-                let (addr, _crossed) = self.get_indirect_indexed();
+                let (addr, _) = self.get_indirect_indexed();
                 addr
             }
             _ => unimplemented!("invalid addressing mode for CMP"),
@@ -841,6 +844,26 @@ impl Core {
         let res = self.acc.wrapping_sub(byte);
         self.set_nz(res);
         self.status.set_carry(self.acc >= byte);
+    }
+
+    fn cpx(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Immediate => {
+                let byte = self.fetch();
+                let res = self.idx.wrapping_sub(byte);
+                self.set_nz(res);
+                self.status.set_carry(self.idx >= byte);
+                return;
+            }
+            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            _ => unimplemented!("invalid addressing mode for CPX"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = self.idx.wrapping_sub(byte);
+        self.set_nz(res);
+        self.status.set_carry(self.idx >= byte);
     }
 }
 
