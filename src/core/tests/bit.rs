@@ -18,4 +18,16 @@ fn bit_zeropage() {
 }
 
 #[test]
-fn bit_absolute() {}
+fn bit_absolute() {
+    let mut bus = MockBus::new();
+    let program = vec![0x2C, 0x20, 0x20];
+    bus.write(0x2020, 0b0100_0000);
+    let mut core = Core::new(bus, program).unwrap();
+    core.acc = 0b0000_1000;
+    core.step();
+
+    assert_eq!(core.status.zero(), true);
+    assert_eq!(core.status.overflow(), true);
+    assert_eq!(core.status.negative(), false);
+    assert!(verify_clocks(&core, 4));
+}
