@@ -1,14 +1,14 @@
-# Moscore
+# MOScore
 
 ## Introduction
 
-Welcome to Moscore! This project is currently under development and not ready for use. It's a Rust crate for creating emulators for 6502-based systems.
+Welcome to MOScore! This project is currently under development and not ready for use. It's a Rust crate for creating emulators for 6502-based systems.
 
 ## Project Goals
 
-The primary goal of Moscore is to enable users of the crate to craft emulators for a variety of systems. We aim to achieve this by providing a complete, thoroughly-tested, and *mostly* cycle-accurate implementation of the 6502 that can accept custom memory mappings and peripherals which act as the "system bus".
+The primary goal of MOScore is to enable users of the crate to craft emulators for a variety of systems. We aim to achieve this by providing a complete, thoroughly-tested, and *mostly* cycle-accurate implementation of the 6502 that can accept custom memory mappings and peripherals which act as the "system bus".
 
-As development progresses and the project nears completion, we plan to provide a detailed manual on how to develop an emulator with Moscore, as well as an example reference project.
+As development progresses and the project nears completion, we plan to provide a detailed manual on how to develop an emulator with MOScore, as well as an example reference project.
 
 ## Current State
 
@@ -23,11 +23,11 @@ If you're curious about the current progress, checking out the files in `src/cor
 
 ## Contributing
 
-While Moscore is still in the building phase, we welcome contributions and ideas from the community. Feel free to fork the repository, submit issues, or propose pull requests.
+While MOScore is still in the building phase, we welcome contributions and ideas from the community. Feel free to fork the repository, submit issues, or propose pull requests.
 
 ## Disclaimer
 
-Please note that Moscore is still in development and is not ready for use. The current codebase may undergo significant changes.
+Please note that MOScore is still in development and is not ready for use. The current codebase may undergo significant changes.
 
 ## The Name
 
