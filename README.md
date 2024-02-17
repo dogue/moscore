@@ -24,6 +24,6 @@ As of now, the project is in its early stages of development. Here's a brief ove
 
 If you're curious about the current progress, checking out the files in `src/core/tests/` is a good barometer for which instructions are "complete".
 
-### The Name
+## The Name
 
 I wanted to pay homage to MOS Technologies while emphasizing that this project is not an emulator itself, but a "core" for building other emulators.
