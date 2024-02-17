@@ -9,6 +9,7 @@ mod bit;
 mod clv;
 mod cmp;
 mod cpx;
+mod cpy;
 mod inc;
 mod jmp;
 mod jsr;

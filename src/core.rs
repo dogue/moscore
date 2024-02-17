@@ -243,6 +243,9 @@ impl Core {
             0xE0 => self.cpx(Mode::Immediate),
             0xE4 => self.cpx(Mode::ZeroPage(Offset::None)),
             0xEC => self.cpx(Mode::Absolute(Offset::None)),
+            0xC0 => self.cpy(Mode::Immediate),
+            0xC4 => self.cpy(Mode::ZeroPage(Offset::None)),
+            0xCC => self.cpy(Mode::Absolute(Offset::None)),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -864,6 +867,26 @@ impl Core {
         let res = self.idx.wrapping_sub(byte);
         self.set_nz(res);
         self.status.set_carry(self.idx >= byte);
+    }
+
+    fn cpy(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Immediate => {
+                let byte = self.fetch();
+                let res = self.idy.wrapping_sub(byte);
+                self.set_nz(res);
+                self.status.set_carry(self.idy >= byte);
+                return;
+            }
+            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            _ => unimplemented!("invalid addressing mode for CPY"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = self.idy.wrapping_sub(byte);
+        self.set_nz(res);
+        self.status.set_carry(self.idy >= byte);
     }
 }
 
