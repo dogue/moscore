@@ -8,6 +8,9 @@ Welcome to MOScore! This project is currently under development and not ready fo
 
 The primary goal of MOScore is to enable users of the crate to craft emulators for a variety of systems. We aim to achieve this by providing a complete, thoroughly-tested, and *mostly* cycle-accurate implementation of the 6502 that can accept custom memory mappings and peripherals which act as the "system bus".
 
+>[!NOTE]
+>During development, efforts are being made to keep the clock cycle counts accurate. The unit tests for instructions verify that each instruction sends the correct number of clock signal pulses to the bus during execution. However, there may be discrepancies in regards to where these pulses occur within the instruction execution steps. Once the instruction set implementation is complete, work is planned to address this and ensure as much accuracy as we are capable of providing.
+
 As development progresses and the project nears completion, we plan to provide a detailed manual on how to develop an emulator with MOScore, as well as an example reference project.
 
 ## Current State
