@@ -199,6 +199,14 @@ impl Core {
             0xF6 => self.inc(Mode::ZeroPage(Offset::X)),
             0xEE => self.inc(Mode::Absolute(Offset::None)),
             0xFE => self.inc(Mode::Absolute(Offset::X)),
+            0xE8 => self.inx(),
+            0xC8 => self.iny(),
+            0xCA => self.dex(),
+            0x88 => self.dey(),
+            0xC6 => self.dec(Mode::ZeroPage(Offset::None)),
+            0xD6 => self.dec(Mode::ZeroPage(Offset::X)),
+            0xCE => self.dec(Mode::Absolute(Offset::None)),
+            0xDE => self.dec(Mode::Absolute(Offset::X)),
             0x85 => self.sta(Mode::ZeroPage(Offset::None)),
             0x95 => self.sta(Mode::ZeroPage(Offset::X)),
             0x8D => self.sta(Mode::Absolute(Offset::None)),
@@ -225,8 +233,6 @@ impl Core {
             0xD8 => self.cld(),
             0x58 => self.cli(),
             0xB8 => self.clv(),
-            0xE8 => self.inx(),
-            0xC8 => self.iny(),
             0x4C => self.jmp(Mode::Absolute(Offset::None)),
             0x6C => self.jmp(Mode::Indirect),
             0x20 => self.jsr(),
@@ -637,6 +643,26 @@ impl Core {
         self.set_nz(byte);
     }
 
+    fn dec(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for DEC"),
+        };
+
+        let byte = self.read_bus(addr);
+        let byte = byte.wrapping_sub(1);
+        self.clock_bus();
+        self.write_bus(addr, byte);
+        self.set_nz(byte);
+    }
+
     fn sta(&mut self, mode: Mode) {
         let addr = match mode {
             Mode::ZeroPage(offset) => self.get_zeropage(offset),
@@ -772,8 +798,20 @@ impl Core {
         self.set_nz(self.idx);
     }
 
+    fn dex(&mut self) {
+        self.idx = self.idx.wrapping_sub(1);
+        self.clock_bus();
+        self.set_nz(self.idx);
+    }
+
     fn iny(&mut self) {
         self.idy = self.idy.wrapping_add(1);
+        self.clock_bus();
+        self.set_nz(self.idy);
+    }
+
+    fn dey(&mut self) {
+        self.idy = self.idy.wrapping_sub(1);
         self.clock_bus();
         self.set_nz(self.idy);
     }

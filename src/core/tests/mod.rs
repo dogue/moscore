@@ -10,6 +10,7 @@ mod clv;
 mod cmp;
 mod cpx;
 mod cpy;
+mod dec;
 mod inc;
 mod jmp;
 mod jsr;
