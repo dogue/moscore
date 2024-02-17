@@ -24,14 +24,6 @@ As of now, the project is in its early stages of development. Here's a brief ove
 
 If you're curious about the current progress, checking out the files in `src/core/tests/` is a good barometer for which instructions are "complete".
 
-## Contributing
-
-While MOScore is still in the building phase, we welcome contributions and ideas from the community. Feel free to fork the repository, submit issues, or propose pull requests.
-
-## Disclaimer
-
-Please note that MOScore is still in development and is not ready for use. The current codebase may undergo significant changes.
-
-## The Name
+### The Name
 
 I wanted to pay homage to MOS Technologies while emphasizing that this project is not an emulator itself, but a "core" for building other emulators.
