@@ -26,4 +26,4 @@ If you're curious about the current progress, checking out the files in `src/cor
 
 ## The Name
 
-I wanted to pay homage to MOS Technologies while emphasizing that this project is not an emulator itself, but a "core" for building other emulators.
+I wanted to pay homage to MOS Technologies while emphasizing that this project is not a full emulator itself, but a "core" for building other emulators.
