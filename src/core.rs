@@ -232,6 +232,14 @@ impl Core {
             0x20 => self.jsr(),
             0x24 => self.bit(Mode::ZeroPage(Offset::None)),
             0x2C => self.bit(Mode::Absolute(Offset::None)),
+            0xC9 => self.cmp(Mode::Immediate),
+            0xC5 => self.cmp(Mode::ZeroPage(Offset::None)),
+            0xD5 => self.cmp(Mode::ZeroPage(Offset::X)),
+            0xCD => self.cmp(Mode::Absolute(Offset::None)),
+            0xDD => self.cmp(Mode::Absolute(Offset::X)),
+            0xD9 => self.cmp(Mode::Absolute(Offset::Y)),
+            0xC1 => self.cmp(Mode::IndexedIndirect),
+            0xD1 => self.cmp(Mode::IndirectIndexed),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -805,6 +813,34 @@ impl Core {
         self.status.set_negative(((byte) & (1 << 7)) != 0);
         self.status.set_overflow((byte & 1 << 6) != 0);
         self.status.set_zero(res == 0);
+    }
+
+    fn cmp(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Immediate => {
+                let byte = self.fetch();
+                let res = self.acc.wrapping_sub(byte);
+                self.set_nz(res);
+                self.status.set_carry(self.acc >= byte);
+                return;
+            }
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                addr
+            }
+            Mode::IndexedIndirect => self.get_indexed_indirect(),
+            Mode::IndirectIndexed => {
+                let (addr, _crossed) = self.get_indirect_indexed();
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for CMP"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = self.acc.wrapping_sub(byte);
+        self.set_nz(res);
+        self.status.set_carry(self.acc >= byte);
     }
 }
 

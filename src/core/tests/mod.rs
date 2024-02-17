@@ -7,6 +7,7 @@ mod and;
 mod asl;
 mod bit;
 mod clv;
+mod cmp;
 mod inc;
 mod jmp;
 mod jsr;
