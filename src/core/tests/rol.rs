@@ -3,7 +3,7 @@ use crate::core::Core;
 use super::*;
 
 #[test]
-fn test_rol_acc() {
+fn rol_acc() {
     let bus = MockBus::new();
     let program = vec![0x2a];
     let mut core = Core::new(bus, program).unwrap();
@@ -12,9 +12,7 @@ fn test_rol_acc() {
     core.step();
 
     assert_eq!(core.acc, 0b1100_1101);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 2);
+    assert!(verify_clocks(&core, 2));
 
     core.reset();
     core.acc = 0b0110_0110;
@@ -23,7 +21,7 @@ fn test_rol_acc() {
 }
 
 #[test]
-fn test_rol_zeropage() {
+fn rol_zeropage() {
     let mut bus = MockBus::new();
     let program = vec![0x26, 0x20];
     bus.write(0x0020, 0b0110_0110);
@@ -33,13 +31,11 @@ fn test_rol_zeropage() {
     let byte = core.get_bus().read(0x0020);
 
     assert_eq!(byte, 0b1100_1101);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 5);
+    assert!(verify_clocks(&core, 5));
 }
 
 #[test]
-fn test_rol_zeropage_x() {
+fn rol_zeropage_x() {
     let mut bus = MockBus::new();
     let program = vec![0x36, 0x20];
     bus.write(0x0025, 0b0110_0110);
@@ -50,13 +46,11 @@ fn test_rol_zeropage_x() {
     let byte = core.get_bus().read(0x0025);
 
     assert_eq!(byte, 0b1100_1101);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 6);
+    assert!(verify_clocks(&core, 6));
 }
 
 #[test]
-fn test_rol_absolute() {
+fn rol_absolute() {
     let mut bus = MockBus::new();
     let program = vec![0x2e, 0x37, 0x13];
     bus.write(0x1337, 0b0110_0110);
@@ -66,13 +60,11 @@ fn test_rol_absolute() {
     let byte = core.get_bus().read(0x1337);
 
     assert_eq!(byte, 0b1100_1101);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 6);
+    assert!(verify_clocks(&core, 6));
 }
 
 #[test]
-fn test_rol_absolute_x() {
+fn rol_absolute_x() {
     let mut bus = MockBus::new();
     let program = vec![0x3e, 0x33, 0x13];
     bus.write(0x1337, 0b0110_0110);
@@ -83,7 +75,5 @@ fn test_rol_absolute_x() {
     let byte = core.get_bus().read(0x1337);
 
     assert_eq!(byte, 0b1100_1101);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 7);
+    assert!(verify_clocks(&core, 7));
 }

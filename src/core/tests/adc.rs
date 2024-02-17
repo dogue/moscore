@@ -3,7 +3,7 @@ use crate::core::Core;
 use super::*;
 
 #[test]
-fn test_adc_immediate() {
+fn adc_immediate() {
     let bus = MockBus::new();
     let program = vec![0x69, 0x08];
     let mut core = Core::new(bus, program).unwrap();
@@ -11,13 +11,11 @@ fn test_adc_immediate() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 2);
+    assert!(verify_clocks(&core, 2));
 }
 
 #[test]
-fn test_adc_zeropage() {
+fn adc_zeropage() {
     let mut bus = MockBus::new();
     let program = vec![0x65, 0x20];
     bus.write(0x0020, 0x08);
@@ -26,13 +24,11 @@ fn test_adc_zeropage() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 3);
+    assert!(verify_clocks(&core, 3));
 }
 
 #[test]
-fn test_adc_zeropage_x() {
+fn adc_zeropage_x() {
     let mut bus = MockBus::new();
     let program = vec![0x75, 0x20];
     bus.write(0x0025, 0x08);
@@ -42,13 +38,11 @@ fn test_adc_zeropage_x() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 4);
+    assert!(verify_clocks(&core, 4));
 }
 
 #[test]
-fn test_adc_absolute() {
+fn adc_absolute() {
     let mut bus = MockBus::new();
     let program = vec![0x6d, 0x37, 0x13];
     bus.write(0x1337, 0x08);
@@ -57,13 +51,11 @@ fn test_adc_absolute() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 4);
+    assert!(verify_clocks(&core, 4));
 }
 
 #[test]
-fn test_adc_absolute_x() {
+fn adc_absolute_x() {
     let mut bus = MockBus::new();
     let program = vec![0x7d, 0x33, 0x13];
     bus.write(0x1337, 0x08);
@@ -73,13 +65,11 @@ fn test_adc_absolute_x() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 4);
+    assert!(verify_clocks(&core, 4));
 }
 
 #[test]
-fn test_adc_absolute_x_page_crossed() {
+fn adc_absolute_x_page_crossed() {
     let mut bus = MockBus::new();
     let program = vec![0x7d, 0xff, 0x20];
     bus.write(0x2100, 0x08);
@@ -89,13 +79,11 @@ fn test_adc_absolute_x_page_crossed() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 5);
+    assert!(verify_clocks(&core, 5));
 }
 
 #[test]
-fn test_adc_absolute_y() {
+fn adc_absolute_y() {
     let mut bus = MockBus::new();
     let program = vec![0x79, 0x33, 0x13];
     bus.write(0x1337, 0x08);
@@ -105,13 +93,11 @@ fn test_adc_absolute_y() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 4);
+    assert!(verify_clocks(&core, 4));
 }
 
 #[test]
-fn test_adc_absolute_y_page_crossed() {
+fn adc_absolute_y_page_crossed() {
     let mut bus = MockBus::new();
     let program = vec![0x79, 0xff, 0x20];
     bus.write(0x2100, 0x08);
@@ -121,13 +107,11 @@ fn test_adc_absolute_y_page_crossed() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 5);
+    assert!(verify_clocks(&core, 5));
 }
 
 #[test]
-fn test_adc_indexed_indirect() {
+fn adc_indexed_indirect() {
     let mut bus = MockBus::new();
     let program = vec![0x61, 0x20];
     bus.write(0x0022, 0x37);
@@ -139,13 +123,11 @@ fn test_adc_indexed_indirect() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 6);
+    assert!(verify_clocks(&core, 6));
 }
 
 #[test]
-fn test_adc_indirect_indexed() {
+fn adc_indirect_indexed() {
     let mut bus = MockBus::new();
     let program = vec![0x71, 0x20];
     bus.write(0x0020, 0x33);
@@ -157,13 +139,11 @@ fn test_adc_indirect_indexed() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 5);
+    assert!(verify_clocks(&core, 5));
 }
 
 #[test]
-fn test_adc_indirect_indexed_page_crossed() {
+fn adc_indirect_indexed_page_crossed() {
     let mut bus = MockBus::new();
     let program = vec![0x71, 0x20];
     bus.write(0x0020, 0xff);
@@ -175,13 +155,11 @@ fn test_adc_indirect_indexed_page_crossed() {
     core.step();
 
     assert_eq!(core.acc, 0x10);
-
-    let clocks = core.get_bus().read(0xc10c);
-    assert_eq!(clocks, 6);
+    assert!(verify_clocks(&core, 6));
 }
 
 #[test]
-fn test_adc_status_flags() {
+fn adc_status_flags() {
     let bus = MockBus::new();
     let program = vec![0x69, 0xfe, 0x69, 0x01, 0x69, 0x50, 0x69, 0x80];
     let mut core = Core::new(bus, program).unwrap();

@@ -98,6 +98,12 @@ impl Core {
         (u16::from(high) << 8) | u16::from(low)
     }
 
+    fn bytes_from_addr(&self, addr: u16) -> (u8, u8) {
+        let low = addr as u8;
+        let high = (addr >> 8) as u8;
+        return (low, high);
+    }
+
     fn page_crossed(&self, byte: u8, index: u8) -> bool {
         (byte as u16) + (index as u16) > 255
     }
@@ -118,14 +124,12 @@ impl Core {
 
     fn push_stack(&mut self, byte: u8) {
         self.sp = self.sp.wrapping_sub(1);
-        self.clock_bus();
         let addr = self.addr_from_bytes(self.sp, 0x01);
         self.write_bus(addr, byte);
     }
 
     fn pull_stack(&mut self) -> u8 {
         let addr = self.addr_from_bytes(self.sp, 0x01);
-        self.clock_bus();
         self.sp = self.sp.wrapping_add(1);
         self.clock_bus();
         self.read_bus(addr)
@@ -156,6 +160,11 @@ impl Core {
             0x56 => self.lsr(Mode::ZeroPage(Offset::X)),
             0x4E => self.lsr(Mode::Absolute(Offset::None)),
             0x5E => self.lsr(Mode::Absolute(Offset::X)),
+            0x0A => self.asl(Mode::Accumulator),
+            0x06 => self.asl(Mode::ZeroPage(Offset::None)),
+            0x16 => self.asl(Mode::ZeroPage(Offset::X)),
+            0x0E => self.asl(Mode::Absolute(Offset::None)),
+            0x1E => self.asl(Mode::Absolute(Offset::X)),
             0x69 => self.adc(Mode::Immediate),
             0x65 => self.adc(Mode::ZeroPage(Offset::None)),
             0x75 => self.adc(Mode::ZeroPage(Offset::X)),
@@ -190,6 +199,37 @@ impl Core {
             0xF6 => self.inc(Mode::ZeroPage(Offset::X)),
             0xEE => self.inc(Mode::Absolute(Offset::None)),
             0xFE => self.inc(Mode::Absolute(Offset::X)),
+            0x85 => self.sta(Mode::ZeroPage(Offset::None)),
+            0x95 => self.sta(Mode::ZeroPage(Offset::X)),
+            0x8D => self.sta(Mode::Absolute(Offset::None)),
+            0x9D => self.sta(Mode::Absolute(Offset::X)),
+            0x99 => self.sta(Mode::Absolute(Offset::Y)),
+            0x81 => self.sta(Mode::IndexedIndirect),
+            0x91 => self.sta(Mode::IndirectIndexed),
+            0x86 => self.stx(Mode::ZeroPage(Offset::None)),
+            0x96 => self.stx(Mode::ZeroPage(Offset::Y)),
+            0x8E => self.stx(Mode::Absolute(Offset::None)),
+            0x84 => self.sty(Mode::ZeroPage(Offset::None)),
+            0x94 => self.sty(Mode::ZeroPage(Offset::X)),
+            0x8C => self.sty(Mode::Absolute(Offset::None)),
+            0xAA => self.tax(),
+            0xA8 => self.tay(),
+            0xBA => self.tsx(),
+            0x8A => self.txa(),
+            0x9A => self.txs(),
+            0x98 => self.tya(),
+            0x38 => self.sec(),
+            0xF8 => self.sed(),
+            0x78 => self.sei(),
+            0x18 => self.clc(),
+            0xD8 => self.cld(),
+            0x58 => self.cli(),
+            0xB8 => self.clv(),
+            0xE8 => self.inx(),
+            0xC8 => self.iny(),
+            0x4C => self.jmp(Mode::Absolute(Offset::None)),
+            0x6C => self.jmp(Mode::Indirect),
+            0x20 => self.jsr(),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -390,6 +430,34 @@ impl Core {
         }
     }
 
+    fn asl(&mut self, mode: Mode) {
+        match mode {
+            Mode::Accumulator => {
+                let byte = self.acc;
+                self.acc = self.shift_byte_left(byte);
+                self.set_nz(self.acc);
+            }
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                let byte = self.read_bus(addr);
+                let byte = self.shift_byte_left(byte);
+                self.write_bus(addr, byte);
+                self.set_nz(byte);
+            }
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                let byte = self.read_bus(addr);
+                let byte = self.shift_byte_left(byte);
+                self.write_bus(addr, byte);
+                self.set_nz(byte);
+            }
+            _ => unimplemented!("invalid addressing mode for ASL"),
+        }
+    }
+
     fn adc(&mut self, mode: Mode) {
         let byte = match mode {
             Mode::Immediate => self.fetch(),
@@ -512,19 +580,23 @@ impl Core {
     }
 
     fn pha(&mut self) {
+        self.clock_bus();
         self.push_stack(self.acc);
     }
 
     fn pla(&mut self) {
+        self.clock_bus();
         self.acc = self.pull_stack();
         self.set_nz(self.acc);
     }
 
     fn php(&mut self) {
+        self.clock_bus();
         self.push_stack(self.status.as_byte());
     }
 
     fn plp(&mut self) {
+        self.clock_bus();
         let byte = self.pull_stack();
         self.status.from_byte(byte);
     }
@@ -547,6 +619,176 @@ impl Core {
         self.clock_bus();
         self.write_bus(addr, byte);
         self.set_nz(byte);
+    }
+
+    fn sta(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset != Offset::None && !crossed {
+                    self.clock_bus();
+                }
+                addr
+            }
+            Mode::IndexedIndirect => self.get_indexed_indirect(),
+            Mode::IndirectIndexed => {
+                let (addr, _) = self.get_indirect_indexed();
+                self.clock_bus();
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for STA"),
+        };
+
+        self.clock_bus();
+        self.get_bus().write(addr, self.acc);
+    }
+
+    fn stx(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset != Offset::None && !crossed {
+                    self.clock_bus();
+                }
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for STA"),
+        };
+
+        self.clock_bus();
+        self.get_bus().write(addr, self.idx);
+    }
+
+    fn sty(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset != Offset::None && !crossed {
+                    self.clock_bus();
+                }
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for STA"),
+        };
+
+        self.clock_bus();
+        self.get_bus().write(addr, self.idy);
+    }
+
+    // I hate this abbreviation with my entire soul,
+    // but consistency or something...
+    fn tax(&mut self) {
+        self.idx = self.acc;
+        self.clock_bus();
+        self.set_nz(self.idx);
+    }
+
+    fn tay(&mut self) {
+        self.idy = self.acc;
+        self.clock_bus();
+        self.set_nz(self.idy);
+    }
+
+    fn tsx(&mut self) {
+        self.idx = self.sp;
+        self.clock_bus();
+        self.set_nz(self.idy);
+    }
+
+    fn txa(&mut self) {
+        self.acc = self.idx;
+        self.clock_bus();
+        self.set_nz(self.acc);
+    }
+
+    fn txs(&mut self) {
+        self.sp = self.idx;
+        self.clock_bus();
+    }
+
+    fn tya(&mut self) {
+        self.acc = self.idy;
+        self.clock_bus();
+        self.set_nz(self.acc);
+    }
+
+    fn sec(&mut self) {
+        self.status.set_carry(true);
+        self.clock_bus();
+    }
+
+    fn clc(&mut self) {
+        self.status.set_carry(false);
+        self.clock_bus();
+    }
+
+    fn sed(&mut self) {
+        self.status.set_decimal(true);
+        self.clock_bus();
+    }
+
+    fn cld(&mut self) {
+        self.status.set_decimal(false);
+        self.clock_bus();
+    }
+
+    fn sei(&mut self) {
+        self.status.set_interrupt(true);
+        self.clock_bus();
+    }
+
+    fn cli(&mut self) {
+        self.status.set_interrupt(false);
+        self.clock_bus();
+    }
+
+    fn clv(&mut self) {
+        self.status.set_overflow(false);
+        self.clock_bus();
+    }
+
+    fn inx(&mut self) {
+        self.idx = self.idx.wrapping_add(1);
+        self.clock_bus();
+        self.set_nz(self.idx);
+    }
+
+    fn iny(&mut self) {
+        self.idy = self.idy.wrapping_add(1);
+        self.clock_bus();
+        self.set_nz(self.idy);
+    }
+
+    fn jmp(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            Mode::Indirect => {
+                let i_low = self.fetch();
+                let i_high = self.fetch();
+                let indirect = self.addr_from_bytes(i_low, i_high);
+
+                let t_low = self.read_bus(indirect);
+                let t_high = self.read_bus(indirect.wrapping_add(1));
+                let addr = self.addr_from_bytes(t_low, t_high);
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for JMP"),
+        };
+
+        self.pc = addr;
+    }
+
+    fn jsr(&mut self) {
+        let adl = self.fetch();
+        let adh = self.fetch();
+        let (pcl, pch) = self.bytes_from_addr(self.pc);
+        self.push_stack(pch);
+        self.push_stack(pcl);
+        self.clock_bus();
+        self.pc = self.addr_from_bytes(adl, adh);
     }
 }
 
