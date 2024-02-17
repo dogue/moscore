@@ -230,6 +230,8 @@ impl Core {
             0x4C => self.jmp(Mode::Absolute(Offset::None)),
             0x6C => self.jmp(Mode::Indirect),
             0x20 => self.jsr(),
+            0x24 => self.bit(Mode::ZeroPage(Offset::None)),
+            0x2C => self.bit(Mode::Absolute(Offset::None)),
             0xEA => self.clock_bus(), // NOP
             _ => self.halted = true,
         }
@@ -789,6 +791,20 @@ impl Core {
         self.push_stack(pcl);
         self.clock_bus();
         self.pc = self.addr_from_bytes(adl, adh);
+    }
+
+    fn bit(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            _ => unimplemented!("invalid addressing mode for BIT"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = byte & self.acc;
+        self.status.set_negative(((byte) & (1 << 7)) != 0);
+        self.status.set_overflow((byte & 1 << 6) != 0);
+        self.status.set_zero(res == 0);
     }
 }
 

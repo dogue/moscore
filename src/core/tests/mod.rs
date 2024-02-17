@@ -5,6 +5,7 @@ use super::Core;
 mod adc;
 mod and;
 mod asl;
+mod bit;
 mod clv;
 mod inc;
 mod jmp;
