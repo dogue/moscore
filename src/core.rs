@@ -373,6 +373,308 @@ impl Core {
 
 // instructions
 impl Core {
+    fn adc(&mut self, mode: Mode) {
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                self.read_bus(addr)
+            }
+            Mode::Absolute(offset) => {
+                let addr = self.get_absolute(offset).0;
+                self.read_bus(addr)
+            }
+            Mode::IndexedIndirect => {
+                let addr = self.get_indexed_indirect();
+                self.read_bus(addr)
+            }
+            Mode::IndirectIndexed => {
+                let addr = self.get_indirect_indexed().0;
+                self.read_bus(addr)
+            }
+            _ => unimplemented!("invalid addressing mode for ADC"),
+        };
+
+        let carry_bit = self.status.carry() as u8;
+
+        let (partial, carry1) = byte.overflowing_add(carry_bit);
+        let (res, carry2) = self.acc.overflowing_add(partial);
+        let overflow = self.check_overflow(self.acc, byte, res);
+        self.acc = res;
+        self.status.set_carry(carry1 || carry2);
+        self.status.set_overflow(overflow);
+        self.set_nz(self.acc);
+    }
+
+    fn and(&mut self, mode: Mode) {
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                self.read_bus(addr)
+            }
+            Mode::Absolute(offset) => {
+                let addr = self.get_absolute(offset).0;
+                self.read_bus(addr)
+            }
+            Mode::IndexedIndirect => {
+                let addr = self.get_indexed_indirect();
+                self.read_bus(addr)
+            }
+            Mode::IndirectIndexed => {
+                let addr = self.get_indirect_indexed().0;
+                self.read_bus(addr)
+            }
+            _ => unimplemented!("invalid addressing mode for AND"),
+        };
+
+        self.acc &= byte;
+        self.set_nz(self.acc);
+    }
+
+    fn asl(&mut self, mode: Mode) {
+        match mode {
+            Mode::Accumulator => {
+                let byte = self.acc;
+                self.acc = self.shift_byte_left(byte);
+                self.set_nz(self.acc);
+            }
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                let byte = self.read_bus(addr);
+                let byte = self.shift_byte_left(byte);
+                self.write_bus(addr, byte);
+                self.set_nz(byte);
+            }
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                let byte = self.read_bus(addr);
+                let byte = self.shift_byte_left(byte);
+                self.write_bus(addr, byte);
+                self.set_nz(byte);
+            }
+            _ => unimplemented!("invalid addressing mode for ASL"),
+        }
+    }
+
+    fn _bcc() {}
+
+    fn _bcs() {}
+
+    fn _beq() {}
+
+    fn bit(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            _ => unimplemented!("invalid addressing mode for BIT"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = byte & self.acc;
+        self.status.set_negative(((byte) & (1 << 7)) != 0);
+        self.status.set_overflow((byte & 1 << 6) != 0);
+        self.status.set_zero(res == 0);
+    }
+
+    fn _bmi() {}
+
+    fn _bne() {}
+
+    fn _bpl() {}
+
+    fn _brk() {}
+
+    fn _bvc() {}
+
+    fn _bvs() {}
+
+    fn clc(&mut self) {
+        self.status.set_carry(false);
+        self.clock_bus();
+    }
+
+    fn cld(&mut self) {
+        self.status.set_decimal(false);
+        self.clock_bus();
+    }
+
+    fn cli(&mut self) {
+        self.status.set_interrupt(false);
+        self.clock_bus();
+    }
+
+    fn clv(&mut self) {
+        self.status.set_overflow(false);
+        self.clock_bus();
+    }
+
+    fn cmp(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Immediate => {
+                let byte = self.fetch();
+                let res = self.acc.wrapping_sub(byte);
+                self.set_nz(res);
+                self.status.set_carry(self.acc >= byte);
+                return;
+            }
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, _) = self.get_absolute(offset);
+                addr
+            }
+            Mode::IndexedIndirect => self.get_indexed_indirect(),
+            Mode::IndirectIndexed => {
+                let (addr, _) = self.get_indirect_indexed();
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for CMP"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = self.acc.wrapping_sub(byte);
+        self.set_nz(res);
+        self.status.set_carry(self.acc >= byte);
+    }
+
+    fn cpx(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Immediate => {
+                let byte = self.fetch();
+                let res = self.idx.wrapping_sub(byte);
+                self.set_nz(res);
+                self.status.set_carry(self.idx >= byte);
+                return;
+            }
+            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            _ => unimplemented!("invalid addressing mode for CPX"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = self.idx.wrapping_sub(byte);
+        self.set_nz(res);
+        self.status.set_carry(self.idx >= byte);
+    }
+
+    fn cpy(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Immediate => {
+                let byte = self.fetch();
+                let res = self.idy.wrapping_sub(byte);
+                self.set_nz(res);
+                self.status.set_carry(self.idy >= byte);
+                return;
+            }
+            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            _ => unimplemented!("invalid addressing mode for CPY"),
+        };
+
+        let byte = self.read_bus(addr);
+        let res = self.idy.wrapping_sub(byte);
+        self.set_nz(res);
+        self.status.set_carry(self.idy >= byte);
+    }
+
+    fn dec(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for DEC"),
+        };
+
+        let byte = self.read_bus(addr);
+        let byte = byte.wrapping_sub(1);
+        self.clock_bus();
+        self.write_bus(addr, byte);
+        self.set_nz(byte);
+    }
+
+    fn dex(&mut self) {
+        self.idx = self.idx.wrapping_sub(1);
+        self.clock_bus();
+        self.set_nz(self.idx);
+    }
+
+    fn dey(&mut self) {
+        self.idy = self.idy.wrapping_sub(1);
+        self.clock_bus();
+        self.set_nz(self.idy);
+    }
+
+    fn _eor() {}
+
+    fn inc(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+            Mode::Absolute(offset) => {
+                let (addr, crossed) = self.get_absolute(offset);
+                if offset == Offset::X && !crossed {
+                    self.clock_bus();
+                }
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for INC"),
+        };
+
+        let byte = self.read_bus(addr);
+        let byte = byte.wrapping_add(1);
+        self.clock_bus();
+        self.write_bus(addr, byte);
+        self.set_nz(byte);
+    }
+
+    fn inx(&mut self) {
+        self.idx = self.idx.wrapping_add(1);
+        self.clock_bus();
+        self.set_nz(self.idx);
+    }
+
+    fn iny(&mut self) {
+        self.idy = self.idy.wrapping_add(1);
+        self.clock_bus();
+        self.set_nz(self.idy);
+    }
+
+    fn jmp(&mut self, mode: Mode) {
+        let addr = match mode {
+            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            Mode::Indirect => {
+                let i_low = self.fetch();
+                let i_high = self.fetch();
+                let indirect = self.addr_from_bytes(i_low, i_high);
+
+                let t_low = self.read_bus(indirect);
+                let t_high = self.read_bus(indirect.wrapping_add(1));
+                let addr = self.addr_from_bytes(t_low, t_high);
+                addr
+            }
+            _ => unimplemented!("invalid addressing mode for JMP"),
+        };
+
+        self.pc = addr;
+    }
+
+    fn jsr(&mut self) {
+        let adl = self.fetch();
+        let adh = self.fetch();
+        let (pcl, pch) = self.bytes_from_addr(self.pc);
+        self.push_stack(pch);
+        self.push_stack(pcl);
+        self.clock_bus();
+        self.pc = self.addr_from_bytes(adl, adh);
+    }
+
     fn lda(&mut self, mode: Mode) {
         let addr = match mode {
             Mode::Immediate => {
@@ -452,122 +754,28 @@ impl Core {
         }
     }
 
-    fn asl(&mut self, mode: Mode) {
-        match mode {
-            Mode::Accumulator => {
-                let byte = self.acc;
-                self.acc = self.shift_byte_left(byte);
-                self.set_nz(self.acc);
-            }
-            Mode::ZeroPage(offset) => {
-                let addr = self.get_zeropage(offset);
-                let byte = self.read_bus(addr);
-                let byte = self.shift_byte_left(byte);
-                self.write_bus(addr, byte);
-                self.set_nz(byte);
-            }
-            Mode::Absolute(offset) => {
-                let (addr, crossed) = self.get_absolute(offset);
-                if offset == Offset::X && !crossed {
-                    self.clock_bus();
-                }
-                let byte = self.read_bus(addr);
-                let byte = self.shift_byte_left(byte);
-                self.write_bus(addr, byte);
-                self.set_nz(byte);
-            }
-            _ => unimplemented!("invalid addressing mode for ASL"),
-        }
+    fn _ora() {}
+
+    fn pha(&mut self) {
+        self.clock_bus();
+        self.push_stack(self.acc);
     }
 
-    fn adc(&mut self, mode: Mode) {
-        let byte = match mode {
-            Mode::Immediate => self.fetch(),
-            Mode::ZeroPage(offset) => {
-                let addr = self.get_zeropage(offset);
-                self.read_bus(addr)
-            }
-            Mode::Absolute(offset) => {
-                let addr = self.get_absolute(offset).0;
-                self.read_bus(addr)
-            }
-            Mode::IndexedIndirect => {
-                let addr = self.get_indexed_indirect();
-                self.read_bus(addr)
-            }
-            Mode::IndirectIndexed => {
-                let addr = self.get_indirect_indexed().0;
-                self.read_bus(addr)
-            }
-            _ => unimplemented!("invalid addressing mode for ADC"),
-        };
+    fn php(&mut self) {
+        self.clock_bus();
+        self.push_stack(self.status.as_byte());
+    }
 
-        let carry_bit = self.status.carry() as u8;
-
-        let (partial, carry1) = byte.overflowing_add(carry_bit);
-        let (res, carry2) = self.acc.overflowing_add(partial);
-        let overflow = self.check_overflow(self.acc, byte, res);
-        self.acc = res;
-        self.status.set_carry(carry1 || carry2);
-        self.status.set_overflow(overflow);
+    fn pla(&mut self) {
+        self.clock_bus();
+        self.acc = self.pull_stack();
         self.set_nz(self.acc);
     }
 
-    fn and(&mut self, mode: Mode) {
-        let byte = match mode {
-            Mode::Immediate => self.fetch(),
-            Mode::ZeroPage(offset) => {
-                let addr = self.get_zeropage(offset);
-                self.read_bus(addr)
-            }
-            Mode::Absolute(offset) => {
-                let addr = self.get_absolute(offset).0;
-                self.read_bus(addr)
-            }
-            Mode::IndexedIndirect => {
-                let addr = self.get_indexed_indirect();
-                self.read_bus(addr)
-            }
-            Mode::IndirectIndexed => {
-                let addr = self.get_indirect_indexed().0;
-                self.read_bus(addr)
-            }
-            _ => unimplemented!("invalid addressing mode for AND"),
-        };
-
-        self.acc &= byte;
-        self.set_nz(self.acc);
-    }
-
-    fn ror(&mut self, mode: Mode) {
-        match mode {
-            Mode::Accumulator => {
-                // shift_byte_right() clobbers the carry flag
-                let carry = self.status.carry() as u8;
-                self.acc = self.shift_byte_right(self.acc) | carry << 7;
-                self.set_nz(self.acc);
-            }
-            Mode::ZeroPage(offset) => {
-                let addr = self.get_zeropage(offset);
-                let carry = self.status.carry() as u8;
-                let byte = self.read_bus(addr);
-                let shifted = self.shift_byte_right(byte) | carry << 7;
-                self.write_bus(addr, shifted);
-                self.set_negative(shifted);
-            }
-            Mode::Absolute(offset) => {
-                let (addr, crossed) = self.get_absolute(offset);
-                if offset == Offset::X && !crossed {
-                    self.clock_bus();
-                }
-                let carry = self.status.carry() as u8;
-                let byte = self.read_bus(addr);
-                let shifted = self.shift_byte_right(byte) | carry << 7;
-                self.write_bus(addr, shifted);
-                self.set_negative(shifted);
-            }
-            _ => unimplemented!("invalid addressng mode for ROR"),
-        }
+    fn plp(&mut self) {
+        self.clock_bus();
+        let byte = self.pull_stack();
+        self.status.from_byte(byte);
     }
 
     fn rol(&mut self, mode: Mode) {
@@ -601,66 +809,56 @@ impl Core {
         }
     }
 
-    fn pha(&mut self) {
-        self.clock_bus();
-        self.push_stack(self.acc);
-    }
-
-    fn pla(&mut self) {
-        self.clock_bus();
-        self.acc = self.pull_stack();
-        self.set_nz(self.acc);
-    }
-
-    fn php(&mut self) {
-        self.clock_bus();
-        self.push_stack(self.status.as_byte());
-    }
-
-    fn plp(&mut self) {
-        self.clock_bus();
-        let byte = self.pull_stack();
-        self.status.from_byte(byte);
-    }
-
-    fn inc(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::ZeroPage(offset) => self.get_zeropage(offset),
+    fn ror(&mut self, mode: Mode) {
+        match mode {
+            Mode::Accumulator => {
+                // shift_byte_right() clobbers the carry flag
+                let carry = self.status.carry() as u8;
+                self.acc = self.shift_byte_right(self.acc) | carry << 7;
+                self.set_nz(self.acc);
+            }
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                let carry = self.status.carry() as u8;
+                let byte = self.read_bus(addr);
+                let shifted = self.shift_byte_right(byte) | carry << 7;
+                self.write_bus(addr, shifted);
+                self.set_negative(shifted);
+            }
             Mode::Absolute(offset) => {
                 let (addr, crossed) = self.get_absolute(offset);
                 if offset == Offset::X && !crossed {
                     self.clock_bus();
                 }
-                addr
+                let carry = self.status.carry() as u8;
+                let byte = self.read_bus(addr);
+                let shifted = self.shift_byte_right(byte) | carry << 7;
+                self.write_bus(addr, shifted);
+                self.set_negative(shifted);
             }
-            _ => unimplemented!("invalid addressing mode for INC"),
-        };
-
-        let byte = self.read_bus(addr);
-        let byte = byte.wrapping_add(1);
-        self.clock_bus();
-        self.write_bus(addr, byte);
-        self.set_nz(byte);
+            _ => unimplemented!("invalid addressng mode for ROR"),
+        }
     }
 
-    fn dec(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::ZeroPage(offset) => self.get_zeropage(offset),
-            Mode::Absolute(offset) => {
-                let (addr, crossed) = self.get_absolute(offset);
-                if offset == Offset::X && !crossed {
-                    self.clock_bus();
-                }
-                addr
-            }
-            _ => unimplemented!("invalid addressing mode for DEC"),
-        };
+    fn _rti() {}
 
-        let byte = self.read_bus(addr);
-        let byte = byte.wrapping_sub(1);
+    fn _rts() {}
+
+    fn _sbc() {}
+
+    fn sec(&mut self) {
+        self.status.set_carry(true);
         self.clock_bus();
-        self.write_bus(addr, byte);
-        self.set_nz(byte);
+    }
+
+    fn sed(&mut self) {
+        self.status.set_decimal(true);
+        self.clock_bus();
+    }
+
+    fn sei(&mut self) {
+        self.status.set_interrupt(true);
+        self.clock_bus();
     }
 
     fn sta(&mut self, mode: Mode) {
@@ -755,176 +953,6 @@ impl Core {
         self.acc = self.idy;
         self.clock_bus();
         self.set_nz(self.acc);
-    }
-
-    fn sec(&mut self) {
-        self.status.set_carry(true);
-        self.clock_bus();
-    }
-
-    fn clc(&mut self) {
-        self.status.set_carry(false);
-        self.clock_bus();
-    }
-
-    fn sed(&mut self) {
-        self.status.set_decimal(true);
-        self.clock_bus();
-    }
-
-    fn cld(&mut self) {
-        self.status.set_decimal(false);
-        self.clock_bus();
-    }
-
-    fn sei(&mut self) {
-        self.status.set_interrupt(true);
-        self.clock_bus();
-    }
-
-    fn cli(&mut self) {
-        self.status.set_interrupt(false);
-        self.clock_bus();
-    }
-
-    fn clv(&mut self) {
-        self.status.set_overflow(false);
-        self.clock_bus();
-    }
-
-    fn inx(&mut self) {
-        self.idx = self.idx.wrapping_add(1);
-        self.clock_bus();
-        self.set_nz(self.idx);
-    }
-
-    fn dex(&mut self) {
-        self.idx = self.idx.wrapping_sub(1);
-        self.clock_bus();
-        self.set_nz(self.idx);
-    }
-
-    fn iny(&mut self) {
-        self.idy = self.idy.wrapping_add(1);
-        self.clock_bus();
-        self.set_nz(self.idy);
-    }
-
-    fn dey(&mut self) {
-        self.idy = self.idy.wrapping_sub(1);
-        self.clock_bus();
-        self.set_nz(self.idy);
-    }
-
-    fn jmp(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
-            Mode::Indirect => {
-                let i_low = self.fetch();
-                let i_high = self.fetch();
-                let indirect = self.addr_from_bytes(i_low, i_high);
-
-                let t_low = self.read_bus(indirect);
-                let t_high = self.read_bus(indirect.wrapping_add(1));
-                let addr = self.addr_from_bytes(t_low, t_high);
-                addr
-            }
-            _ => unimplemented!("invalid addressing mode for JMP"),
-        };
-
-        self.pc = addr;
-    }
-
-    fn jsr(&mut self) {
-        let adl = self.fetch();
-        let adh = self.fetch();
-        let (pcl, pch) = self.bytes_from_addr(self.pc);
-        self.push_stack(pch);
-        self.push_stack(pcl);
-        self.clock_bus();
-        self.pc = self.addr_from_bytes(adl, adh);
-    }
-
-    fn bit(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
-            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
-            _ => unimplemented!("invalid addressing mode for BIT"),
-        };
-
-        let byte = self.read_bus(addr);
-        let res = byte & self.acc;
-        self.status.set_negative(((byte) & (1 << 7)) != 0);
-        self.status.set_overflow((byte & 1 << 6) != 0);
-        self.status.set_zero(res == 0);
-    }
-
-    fn cmp(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::Immediate => {
-                let byte = self.fetch();
-                let res = self.acc.wrapping_sub(byte);
-                self.set_nz(res);
-                self.status.set_carry(self.acc >= byte);
-                return;
-            }
-            Mode::ZeroPage(offset) => self.get_zeropage(offset),
-            Mode::Absolute(offset) => {
-                let (addr, _) = self.get_absolute(offset);
-                addr
-            }
-            Mode::IndexedIndirect => self.get_indexed_indirect(),
-            Mode::IndirectIndexed => {
-                let (addr, _) = self.get_indirect_indexed();
-                addr
-            }
-            _ => unimplemented!("invalid addressing mode for CMP"),
-        };
-
-        let byte = self.read_bus(addr);
-        let res = self.acc.wrapping_sub(byte);
-        self.set_nz(res);
-        self.status.set_carry(self.acc >= byte);
-    }
-
-    fn cpx(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::Immediate => {
-                let byte = self.fetch();
-                let res = self.idx.wrapping_sub(byte);
-                self.set_nz(res);
-                self.status.set_carry(self.idx >= byte);
-                return;
-            }
-            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
-            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
-            _ => unimplemented!("invalid addressing mode for CPX"),
-        };
-
-        let byte = self.read_bus(addr);
-        let res = self.idx.wrapping_sub(byte);
-        self.set_nz(res);
-        self.status.set_carry(self.idx >= byte);
-    }
-
-    fn cpy(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::Immediate => {
-                let byte = self.fetch();
-                let res = self.idy.wrapping_sub(byte);
-                self.set_nz(res);
-                self.status.set_carry(self.idy >= byte);
-                return;
-            }
-            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
-            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
-            _ => unimplemented!("invalid addressing mode for CPY"),
-        };
-
-        let byte = self.read_bus(addr);
-        let res = self.idy.wrapping_sub(byte);
-        self.set_nz(res);
-        self.status.set_carry(self.idy >= byte);
     }
 }
 
