@@ -11,6 +11,7 @@ mod cmp;
 mod cpx;
 mod cpy;
 mod dec;
+mod eor;
 mod inc;
 mod jmp;
 mod jsr;
