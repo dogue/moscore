@@ -53,8 +53,12 @@ impl Core {
         self.halted = false;
     }
 
-    pub fn dump_status(&self) -> u8 {
+    pub fn dump_status_byte(&self) -> u8 {
         self.status.as_byte()
+    }
+
+    pub fn dump_status_flags(&self) -> Flags {
+        self.status
     }
 
     pub fn run(&mut self) {
@@ -531,68 +535,65 @@ impl Core {
     }
 
     fn cmp(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::Immediate => {
-                let byte = self.fetch();
-                let res = self.acc.wrapping_sub(byte);
-                self.set_nz(res);
-                self.status.set_carry(self.acc >= byte);
-                return;
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                self.read_bus(addr)
             }
-            Mode::ZeroPage(offset) => self.get_zeropage(offset),
             Mode::Absolute(offset) => {
                 let (addr, _) = self.get_absolute(offset);
-                addr
+                self.read_bus(addr)
             }
-            Mode::IndexedIndirect => self.get_indexed_indirect(),
+            Mode::IndexedIndirect => {
+                let addr = self.get_indexed_indirect();
+                self.read_bus(addr)
+            }
             Mode::IndirectIndexed => {
                 let (addr, _) = self.get_indirect_indexed();
-                addr
+                self.read_bus(addr)
             }
             _ => unimplemented!("invalid addressing mode for CMP"),
         };
 
-        let byte = self.read_bus(addr);
         let res = self.acc.wrapping_sub(byte);
         self.set_nz(res);
         self.status.set_carry(self.acc >= byte);
     }
 
     fn cpx(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::Immediate => {
-                let byte = self.fetch();
-                let res = self.idx.wrapping_sub(byte);
-                self.set_nz(res);
-                self.status.set_carry(self.idx >= byte);
-                return;
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(_) => {
+                let addr = self.get_zeropage(Offset::None);
+                self.read_bus(addr)
             }
-            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
-            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            Mode::Absolute(_) => {
+                let (addr, _) = self.get_absolute(Offset::None);
+                self.read_bus(addr)
+            }
             _ => unimplemented!("invalid addressing mode for CPX"),
         };
 
-        let byte = self.read_bus(addr);
         let res = self.idx.wrapping_sub(byte);
         self.set_nz(res);
         self.status.set_carry(self.idx >= byte);
     }
 
     fn cpy(&mut self, mode: Mode) {
-        let addr = match mode {
-            Mode::Immediate => {
-                let byte = self.fetch();
-                let res = self.idy.wrapping_sub(byte);
-                self.set_nz(res);
-                self.status.set_carry(self.idy >= byte);
-                return;
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(_) => {
+                let addr = self.get_zeropage(Offset::None);
+                self.read_bus(addr)
             }
-            Mode::ZeroPage(_) => self.get_zeropage(Offset::None),
-            Mode::Absolute(_) => self.get_absolute(Offset::None).0,
+            Mode::Absolute(_) => {
+                let (addr, _) = self.get_absolute(Offset::None);
+                self.read_bus(addr)
+            }
             _ => unimplemented!("invalid addressing mode for CPY"),
         };
 
-        let byte = self.read_bus(addr);
         let res = self.idy.wrapping_sub(byte);
         self.set_nz(res);
         self.status.set_carry(self.idy >= byte);
