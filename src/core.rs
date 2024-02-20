@@ -137,12 +137,20 @@ impl Core {
 
     fn decode(&mut self, byte: u8) {
         match byte {
+            0x01 => self.ora(Mode::IndexedIndirect),
+            0x05 => self.ora(Mode::ZeroPage(Offset::None)),
             0x06 => self.asl(Mode::ZeroPage(Offset::None)),
             0x08 => self.php(),
+            0x09 => self.ora(Mode::Immediate),
             0x0A => self.asl(Mode::Accumulator),
+            0x0D => self.ora(Mode::Absolute(Offset::None)),
             0x0E => self.asl(Mode::Absolute(Offset::None)),
+            0x11 => self.ora(Mode::IndirectIndexed),
+            0x15 => self.ora(Mode::ZeroPage(Offset::X)),
             0x16 => self.asl(Mode::ZeroPage(Offset::X)),
             0x18 => self.clc(),
+            0x19 => self.ora(Mode::Absolute(Offset::Y)),
+            0x1D => self.ora(Mode::Absolute(Offset::X)),
             0x1E => self.asl(Mode::Absolute(Offset::X)),
             0x20 => self.jsr(),
             0x21 => self.and(Mode::IndexedIndirect),
@@ -786,7 +794,31 @@ impl Core {
         }
     }
 
-    fn _ora() {}
+    fn ora(&mut self, mode: Mode) {
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                self.read_bus(addr)
+            }
+            Mode::Absolute(offset) => {
+                let (addr, _) = self.get_absolute(offset);
+                self.read_bus(addr)
+            }
+            Mode::IndexedIndirect => {
+                let addr = self.get_indexed_indirect();
+                self.read_bus(addr)
+            }
+            Mode::IndirectIndexed => {
+                let (addr, _) = self.get_indirect_indexed();
+                self.read_bus(addr)
+            }
+            _ => unimplemented!("invalid addressing mode for EOR"),
+        };
+
+        self.acc = self.acc | byte;
+        self.set_nz(self.acc);
+    }
 
     fn pha(&mut self) {
         self.clock_bus();

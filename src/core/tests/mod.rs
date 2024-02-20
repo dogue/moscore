@@ -19,6 +19,7 @@ mod lda;
 mod ldx;
 mod ldy;
 mod lsr;
+mod ora;
 mod push_pull;
 mod rol;
 mod ror;
