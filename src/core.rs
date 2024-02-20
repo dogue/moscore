@@ -131,6 +131,7 @@ impl Core {
     fn pull_stack(&mut self) -> u8 {
         let addr = self.addr_from_bytes(self.sp, 0x01);
         self.sp = self.sp.wrapping_add(1);
+        // TODO(dogue): why are we clocking the bus here, but not in push_stack?
         self.clock_bus();
         self.read_bus(addr)
     }
@@ -186,6 +187,7 @@ impl Core {
             0x59 => self.eor(Mode::Absolute(Offset::Y)),
             0x5D => self.eor(Mode::Absolute(Offset::X)),
             0x5E => self.lsr(Mode::Absolute(Offset::X)),
+            0x60 => self.rts(),
             0x61 => self.adc(Mode::IndexedIndirect),
             0x65 => self.adc(Mode::ZeroPage(Offset::None)),
             0x66 => self.ror(Mode::ZeroPage(Offset::None)),
@@ -906,7 +908,12 @@ impl Core {
 
     fn _rti() {}
 
-    fn _rts() {}
+    fn rts(&mut self) {
+        let adl = self.pull_stack();
+        let adh = self.pull_stack();
+        self.clock_bus();
+        self.pc = self.addr_from_bytes(adl, adh);
+    }
 
     fn _sbc() {}
 
