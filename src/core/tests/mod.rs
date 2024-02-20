@@ -23,6 +23,7 @@ mod ora;
 mod push_pull;
 mod rol;
 mod ror;
+mod sbc;
 mod sec;
 mod sed;
 mod sei;

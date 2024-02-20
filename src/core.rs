@@ -266,14 +266,22 @@ impl Core {
             0xDD => self.cmp(Mode::Absolute(Offset::X)),
             0xDE => self.dec(Mode::Absolute(Offset::X)),
             0xE0 => self.cpx(Mode::Immediate),
+            0xE1 => self.sbc(Mode::IndexedIndirect),
             0xE4 => self.cpx(Mode::ZeroPage(Offset::None)),
+            0xE5 => self.sbc(Mode::ZeroPage(Offset::None)),
             0xE6 => self.inc(Mode::ZeroPage(Offset::None)),
             0xE8 => self.inx(),
+            0xE9 => self.sbc(Mode::Immediate),
             0xEA => self.clock_bus(), // NOP
             0xEC => self.cpx(Mode::Absolute(Offset::None)),
+            0xED => self.sbc(Mode::Absolute(Offset::None)),
             0xEE => self.inc(Mode::Absolute(Offset::None)),
+            0xF1 => self.sbc(Mode::IndirectIndexed),
+            0xF5 => self.sbc(Mode::ZeroPage(Offset::X)),
             0xF6 => self.inc(Mode::ZeroPage(Offset::X)),
             0xF8 => self.sed(),
+            0xF9 => self.sbc(Mode::Absolute(Offset::Y)),
+            0xFD => self.sbc(Mode::Absolute(Offset::X)),
             0xFE => self.inc(Mode::Absolute(Offset::X)),
             _ => self.halted = true,
         }
@@ -916,7 +924,38 @@ impl Core {
         self.pc = self.addr_from_bytes(adl, adh);
     }
 
-    fn _sbc() {}
+    fn sbc(&mut self, mode: Mode) {
+        let byte = match mode {
+            Mode::Immediate => self.fetch(),
+            Mode::ZeroPage(offset) => {
+                let addr = self.get_zeropage(offset);
+                self.read_bus(addr)
+            }
+            Mode::Absolute(offset) => {
+                let addr = self.get_absolute(offset).0;
+                self.read_bus(addr)
+            }
+            Mode::IndexedIndirect => {
+                let addr = self.get_indexed_indirect();
+                self.read_bus(addr)
+            }
+            Mode::IndirectIndexed => {
+                let addr = self.get_indirect_indexed().0;
+                self.read_bus(addr)
+            }
+            _ => unimplemented!("invalid addressing mode for SBC"),
+        };
+
+        let carry_bit = self.status.carry() as u8;
+
+        let (partial, carry1) = byte.overflowing_sub(carry_bit);
+        let (res, carry2) = self.acc.overflowing_sub(partial);
+        let overflow = self.check_overflow(self.acc, byte, res);
+        self.acc = res;
+        self.status.set_carry(carry1 || carry2);
+        self.status.set_overflow(overflow);
+        self.set_nz(self.acc);
+    }
 
     fn sec(&mut self) {
         self.status.set_carry(true);
