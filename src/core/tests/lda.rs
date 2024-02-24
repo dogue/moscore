@@ -1,5 +1,3 @@
-use crate::core::Core;
-
 use super::*;
 
 #[test]

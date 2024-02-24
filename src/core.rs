@@ -276,6 +276,7 @@ impl Core {
             0xEC => self.cpx(Mode::Absolute(Offset::None)),
             0xED => self.sbc(Mode::Absolute(Offset::None)),
             0xEE => self.inc(Mode::Absolute(Offset::None)),
+            0xF0 => self.beq(),
             0xF1 => self.sbc(Mode::IndirectIndexed),
             0xF5 => self.sbc(Mode::ZeroPage(Offset::X)),
             0xF6 => self.inc(Mode::ZeroPage(Offset::X)),
@@ -494,7 +495,31 @@ impl Core {
 
     fn _bcs() {}
 
-    fn _beq() {}
+    fn beq(&mut self) {
+        let offset = self.fetch();
+
+        dbg!(offset);
+
+        if !self.status.zero() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            let (_, crossed) = (self.pc as u8).overflowing_sub(offset & 0x7F);
+            if crossed {
+                self.clock_bus();
+            }
+            self.pc -= (offset & 0x7F) as u16;
+        } else {
+            let (_, crossed) = (self.pc as u8).overflowing_add(offset);
+            if crossed {
+                self.clock_bus();
+            }
+            self.pc += offset as u16;
+        }
+    }
 
     fn bit(&mut self, mode: Mode) {
         let addr = match mode {
