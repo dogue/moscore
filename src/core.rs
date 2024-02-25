@@ -217,6 +217,7 @@ impl Core {
             0x8C => self.sty(Mode::Absolute(Offset::None)),
             0x8D => self.sta(Mode::Absolute(Offset::None)),
             0x8E => self.stx(Mode::Absolute(Offset::None)),
+            0x90 => self.bcc(),
             0x91 => self.sta(Mode::IndirectIndexed),
             0x94 => self.sty(Mode::ZeroPage(Offset::X)),
             0x95 => self.sta(Mode::ZeroPage(Offset::X)),
@@ -491,7 +492,37 @@ impl Core {
         }
     }
 
-    fn _bcc() {}
+    fn bcc(&mut self) {
+        let offset = self.fetch();
+
+        dbg!(offset);
+
+        if self.status.carry() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc -= offset as u16;
+        } else {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc += offset as u16;
+        }
+    }
 
     fn _bcs() {}
 
@@ -507,16 +538,22 @@ impl Core {
         self.clock_bus();
 
         if offset & (1 << 7) != 0 {
-            let (_, crossed) = (self.pc as u8).overflowing_sub(offset & 0x7F);
-            if crossed {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
                 self.clock_bus();
             }
-            self.pc -= (offset & 0x7F) as u16;
+
+            self.pc -= offset as u16;
         } else {
-            let (_, crossed) = (self.pc as u8).overflowing_add(offset);
-            if crossed {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
                 self.clock_bus();
             }
+
             self.pc += offset as u16;
         }
     }
