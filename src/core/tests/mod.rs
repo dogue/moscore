@@ -11,6 +11,7 @@ mod beq;
 mod bit;
 mod bmi;
 mod bne;
+mod bpl;
 mod clv;
 mod cmp;
 mod cpx;

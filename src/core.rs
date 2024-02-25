@@ -150,6 +150,7 @@ impl Core {
             0x0A => self.asl(Mode::Accumulator),
             0x0D => self.ora(Mode::Absolute(Offset::None)),
             0x0E => self.asl(Mode::Absolute(Offset::None)),
+            0x10 => self.bpl(),
             0x11 => self.ora(Mode::IndirectIndexed),
             0x15 => self.ora(Mode::ZeroPage(Offset::X)),
             0x16 => self.asl(Mode::ZeroPage(Offset::X)),
@@ -669,7 +670,37 @@ impl Core {
         }
     }
 
-    fn _bpl() {}
+    fn bpl(&mut self) {
+        let offset = self.fetch();
+
+        dbg!(offset);
+
+        if self.status.negative() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc -= offset as u16;
+        } else {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc += offset as u16;
+        }
+    }
 
     fn _brk() {}
 
