@@ -168,6 +168,7 @@ impl Core {
             0x2C => self.bit(Mode::Absolute(Offset::None)),
             0x2D => self.and(Mode::Absolute(Offset::None)),
             0x2E => self.rol(Mode::Absolute(Offset::None)),
+            0x30 => self.bmi(),
             0x31 => self.and(Mode::IndirectIndexed),
             0x35 => self.and(Mode::ZeroPage(Offset::X)),
             0x36 => self.rol(Mode::ZeroPage(Offset::X)),
@@ -603,9 +604,69 @@ impl Core {
         self.status.set_zero(res == 0);
     }
 
-    fn _bmi() {}
+    fn bmi(&mut self) {
+        let offset = self.fetch();
 
-    fn _bne() {}
+        dbg!(offset);
+
+        if !self.status.negative() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc -= offset as u16;
+        } else {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc += offset as u16;
+        }
+    }
+
+    fn bne(&mut self) {
+        let offset = self.fetch();
+
+        dbg!(offset);
+
+        if self.status.zero() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc -= offset as u16;
+        } else {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc += offset as u16;
+        }
+    }
 
     fn _bpl() {}
 
