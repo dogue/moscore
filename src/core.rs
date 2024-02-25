@@ -238,6 +238,7 @@ impl Core {
             0xAC => self.ldy(Mode::Absolute(Offset::None)),
             0xAD => self.lda(Mode::Absolute(Offset::None)),
             0xAE => self.ldx(Mode::Absolute(Offset::None)),
+            0xB0 => self.bcs(),
             0xB1 => self.lda(Mode::IndirectIndexed),
             0xB4 => self.ldy(Mode::ZeroPage(Offset::X)),
             0xB5 => self.lda(Mode::ZeroPage(Offset::X)),
@@ -524,7 +525,37 @@ impl Core {
         }
     }
 
-    fn _bcs() {}
+    fn bcs(&mut self) {
+        let offset = self.fetch();
+
+        dbg!(offset);
+
+        if !self.status.carry() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc -= offset as u16;
+        } else {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc += offset as u16;
+        }
+    }
 
     fn beq(&mut self) {
         let offset = self.fetch();
