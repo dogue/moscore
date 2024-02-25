@@ -13,6 +13,8 @@ mod bmi;
 mod bne;
 mod bpl;
 mod brk;
+mod bvc;
+mod bvs;
 mod clv;
 mod cmp;
 mod cpx;

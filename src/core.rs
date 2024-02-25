@@ -187,6 +187,7 @@ impl Core {
             0x4C => self.jmp(Mode::Absolute(Offset::None)),
             0x4D => self.eor(Mode::Absolute(Offset::None)),
             0x4E => self.lsr(Mode::Absolute(Offset::None)),
+            0x50 => self.bvc(),
             0x51 => self.eor(Mode::IndirectIndexed),
             0x55 => self.eor(Mode::ZeroPage(Offset::X)),
             0x56 => self.lsr(Mode::ZeroPage(Offset::X)),
@@ -204,6 +205,7 @@ impl Core {
             0x6C => self.jmp(Mode::Indirect),
             0x6D => self.adc(Mode::Absolute(Offset::None)),
             0x6E => self.ror(Mode::Absolute(Offset::None)),
+            0x70 => self.bvs(),
             0x71 => self.adc(Mode::IndirectIndexed),
             0x75 => self.adc(Mode::ZeroPage(Offset::X)),
             0x76 => self.ror(Mode::ZeroPage(Offset::X)),
@@ -717,9 +719,69 @@ impl Core {
         self.pc = self.addr_from_bytes(adl, adh);
     }
 
-    fn _bvc() {}
+    fn bvc(&mut self) {
+        let offset = self.fetch();
 
-    fn _bvs() {}
+        dbg!(offset);
+
+        if self.status.overflow() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc -= offset as u16;
+        } else {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc += offset as u16;
+        }
+    }
+
+    fn bvs(&mut self) {
+        let offset = self.fetch();
+
+        dbg!(offset);
+
+        if !self.status.overflow() {
+            return;
+        }
+
+        self.clock_bus();
+
+        if offset & (1 << 7) != 0 {
+            // discard the sign bit
+            let offset = offset & 0x7F;
+            let (_, page_crossed) = (self.pc as u8).overflowing_sub(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc -= offset as u16;
+        } else {
+            let (_, page_crossed) = (self.pc as u8).overflowing_add(offset);
+
+            if page_crossed {
+                self.clock_bus();
+            }
+
+            self.pc += offset as u16;
+        }
+    }
 
     fn clc(&mut self) {
         self.status.set_carry(false);
