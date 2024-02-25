@@ -10,6 +10,7 @@ mod bcs;
 mod beq;
 mod bit;
 mod bmi;
+mod bne;
 mod clv;
 mod cmp;
 mod cpx;

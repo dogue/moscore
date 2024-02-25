@@ -261,6 +261,7 @@ impl Core {
             0xCC => self.cpy(Mode::Absolute(Offset::None)),
             0xCD => self.cmp(Mode::Absolute(Offset::None)),
             0xCE => self.dec(Mode::Absolute(Offset::None)),
+            0xD0 => self.bne(),
             0xD1 => self.cmp(Mode::IndirectIndexed),
             0xD5 => self.cmp(Mode::ZeroPage(Offset::X)),
             0xD6 => self.dec(Mode::ZeroPage(Offset::X)),
