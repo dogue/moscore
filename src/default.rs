@@ -2,8 +2,8 @@ use crate::{error::BusError, traits::Bus};
 
 #[derive(Debug)]
 pub struct DefaultBus {
-    ram: [u8; 0x7fff],
-    rom: [u8; 0x7fff],
+    ram: [u8; 0x8000],
+    rom: [u8; 0x8000],
 }
 
 impl Bus for DefaultBus {
@@ -51,8 +51,8 @@ impl Bus for DefaultBus {
 impl Default for DefaultBus {
     fn default() -> Self {
         Self {
-            ram: [0; 0x7fff],
-            rom: [0; 0x7fff],
+            ram: [0; 0x8000],
+            rom: [0; 0x8000],
         }
     }
 }

@@ -12,6 +12,7 @@ mod bit;
 mod bmi;
 mod bne;
 mod bpl;
+mod brk;
 mod clv;
 mod cmp;
 mod cpx;
@@ -45,12 +46,12 @@ mod tya;
 
 #[derive(Debug, Clone)]
 struct MockBus {
-    mem: [u8; 0xffff],
+    mem: [u8; 0x10000],
 }
 
 impl MockBus {
     pub fn new() -> Self {
-        Self { mem: [0; 0xffff] }
+        Self { mem: [0; 0x10000] }
     }
 }
 

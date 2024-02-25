@@ -142,6 +142,7 @@ impl Core {
 
     fn decode(&mut self, byte: u8) {
         match byte {
+            0x00 => self.brk(),
             0x01 => self.ora(Mode::IndexedIndirect),
             0x05 => self.ora(Mode::ZeroPage(Offset::None)),
             0x06 => self.asl(Mode::ZeroPage(Offset::None)),
@@ -702,7 +703,19 @@ impl Core {
         }
     }
 
-    fn _brk() {}
+    fn brk(&mut self) {
+        let (pcl, pch) = self.bytes_from_addr(self.pc);
+        let mut status = self.status;
+        self.clock_bus();
+        status.set_break(true);
+        self.push_stack(pch);
+        self.push_stack(pcl);
+        self.push_stack(status.as_byte());
+
+        let adl = self.read_bus(0xFFFE);
+        let adh = self.read_bus(0xFFFF);
+        self.pc = self.addr_from_bytes(adl, adh);
+    }
 
     fn _bvc() {}
 
